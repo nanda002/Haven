@@ -4,73 +4,48 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.app.haven.tests.runSmokeTest
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.ui.theme.HavenTheme
-import com.google.apps.card.v1.Columns
-import kotlinx.coroutines.launch
+import com.app.haven.view.AuthScreen
+import com.app.haven.view.HouseholdSetupScreen
+import com.app.haven.view.MainScaffold
+import com.app.haven.viewmodel.SessionState
+import com.app.haven.viewmodel.SessionViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent {
-            HavenTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
-            }
+        setContent { HavenTheme { HavenApp() } }
+    }
+}
+
+@Composable
+fun HavenApp(vm: SessionViewModel = viewModel()) {
+    val state by vm.state.collectAsStateWithLifecycle()
+
+    when (val s = state) {
+        SessionState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    var status by remember { mutableStateOf("Not run yet") }
-    val scope = rememberCoroutineScope()
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .systemBarsPadding()
-            .padding(16.dp)
-    ) {
-        Button(onClick = {
-            status = "Running..."
-            scope.launch {
-                status = try {
-                    runSmokeTest()
-                    "Done, check Logcat and Firestore"
-                } catch (e: Exception) {
-                    "Failed: ${e.message}"
-                }
-            }
-        }) { Text("Run test") }
-        Text(status)
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    HavenTheme {
-        Greeting("Android")
+        SessionState.SignedOut -> AuthScreen(onAuthenticated = vm::refresh)
+        SessionState.NeedsHousehold -> HouseholdSetupScreen(onDone = vm::refresh, onLogout = vm::logOut)
+        SessionState.InHousehold -> MainScaffold(onLogout = vm::logOut)
+        is SessionState.Error -> Column(
+            Modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(s.message, color = MaterialTheme.colorScheme.error)
+            Button(vm::refresh) { Text("Retry") }
+        }
     }
 }
