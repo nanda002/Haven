@@ -1,13 +1,17 @@
 package com.app.haven.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.haven.actions.UserActions
 import com.app.haven.actions.friendlyMessage
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlin.time.Duration.Companion.seconds
 
 sealed interface SessionState {
     data object Loading : SessionState
@@ -27,11 +31,22 @@ class SessionViewModel(private val users: UserActions = UserActions()) : ViewMod
     fun refresh() {
         viewModelScope.launch {
             _state.value = SessionState.Loading
-            _state.value = if (!users.isSignedIn) SessionState.SignedOut
+            val signedIn = users.isSignedIn
+            Log.d("SessionViewModel", "refresh: isSignedIn = $signedIn")
+            _state.value = if (!signedIn) SessionState.SignedOut
             else try {
-                if (users.loadUser()?.householdId == null) SessionState.NeedsHousehold
+                Log.d("SessionViewModel", "refresh: loading user...")
+                val user = withTimeout(5.seconds) {
+                    users.loadUser()
+                }
+                Log.d("SessionViewModel", "refresh: user loaded, householdId = ${user?.householdId}")
+                if (user?.householdId == null) SessionState.NeedsHousehold
                 else SessionState.InHousehold
+            } catch (_: TimeoutCancellationException) {
+                Log.d("SessionViewModel", "refresh: timeout loading user")
+                SessionState.Error("Connection timed out. Please check your internet connection.")
             } catch (e: Exception) {
+                Log.e("SessionViewModel", "refresh error", e)
                 SessionState.Error(e.friendlyMessage())
             }
         }

@@ -8,7 +8,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import java.security.SecureRandom
 
-// Creating or joining a household (backend only, no UI here)
+// Creating or joining a household (just backend for now)
 class HouseholdActions(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()

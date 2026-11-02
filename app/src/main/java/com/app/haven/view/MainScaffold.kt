@@ -1,4 +1,3 @@
-//  (4-tab shell: Home, Ledger, Chores, Pantry)
 package com.app.haven.view
 
 import androidx.compose.foundation.layout.*

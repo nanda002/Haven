@@ -1,4 +1,3 @@
-// HouseholdViewModel.kt  (create / join)
 package com.app.haven.viewmodel
 
 import androidx.lifecycle.ViewModel

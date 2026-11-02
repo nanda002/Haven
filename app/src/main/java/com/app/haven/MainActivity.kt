@@ -24,7 +24,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { HavenTheme { HavenApp() } }
+        setContent {
+            HavenTheme {
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    HavenApp()
+                }
+            }
+        }
     }
 }
 
@@ -45,7 +51,7 @@ fun HavenApp(vm: SessionViewModel = viewModel()) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(s.message, color = MaterialTheme.colorScheme.error)
-            Button(vm::refresh) { Text("Retry") }
+            Button(onClick = vm::refresh) { Text("Retry") }
         }
     }
 }
