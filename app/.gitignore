@@ -1,6 +1,1 @@
-# Android build files
-.gradle/
-**/build/
-
-# Firebase configuration
-**/google-services.json
+/build
