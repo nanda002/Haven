@@ -1,10 +1,14 @@
 package com.app.haven.actions
 
 import com.app.haven.data.model.Household
+import com.app.haven.data.model.Member
 import com.app.haven.data.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.security.SecureRandom
 
@@ -94,6 +98,20 @@ class HouseholdActions(
         val householdId = user?.householdId ?: return null
         return db.collection("households").document(householdId).get().await()
             .toObject(Household::class.java)
+    }
+
+    // Live list of active members, used for "Paid by" and splitting expenses
+    fun observeMembers(householdId: String): Flow<List<Member>> = callbackFlow {
+        val registration = db.collection("households").document(householdId).collection("members")
+            .whereEqualTo("active", true)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                trySend(snapshot?.toObjects(Member::class.java) ?: emptyList())
+            }
+        awaitClose { registration.remove() }
     }
 
     private suspend fun uniqueInviteCode(): String {
