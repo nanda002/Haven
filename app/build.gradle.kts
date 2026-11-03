@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
     id("com.google.gms.google-services")
 }
 
@@ -62,4 +63,8 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.9.0")   // use the newest version Android Studio suggests
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
+    // Room (local database)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)       // coroutines + Flow support
+    ksp(libs.androidx.room.compiler)             // generates the DAO/database code at build time
 }
