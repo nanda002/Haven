@@ -2,6 +2,9 @@ package com.app.haven.viewmodel.expense
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.app.haven.appContainer
 import com.app.haven.actions.ExpenseActions
 import com.app.haven.actions.SettleExpenseActions
 import com.app.haven.domain.expense.Settlement
@@ -14,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -134,4 +138,18 @@ class SettleExpenseViewModel(
     }
 
     private fun centsToText(cents: Long) = "${cents / 100}.${(cents % 100).toString().padStart(2, '0')}"
+
+    companion object {
+        //the screen asks for this; repositories and members come from the app container
+        fun factory(householdId: String, myUid: String) = viewModelFactory {
+            initializer {
+                val container = appContainer()
+                SettleExpenseViewModel(
+                    container.expenseRepository, container.settlementRepository, householdId, myUid,
+                    container.householdActions.observeMembers(householdId)
+                        .map { list -> list.map { MemberOption(it.uid, it.displayName) } }
+                )
+            }
+        }
+    }
 }

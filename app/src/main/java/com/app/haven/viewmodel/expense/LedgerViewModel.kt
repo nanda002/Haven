@@ -2,6 +2,9 @@ package com.app.haven.viewmodel.expense
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.app.haven.appContainer
 import com.app.haven.actions.ExpenseActions
 import com.app.haven.actions.SettleExpenseActions
 import com.app.haven.domain.expense.Balance
@@ -97,5 +100,15 @@ class LedgerViewModel(
             selectedCategory = category,
             categoryTotalCents = visible.sumOf { it.amountCents }
         )
+    }
+
+    companion object {
+        //the screen asks for this; the repositories come from the app container
+        fun factory(householdId: String, myUid: String) = viewModelFactory {
+            initializer {
+                val container = appContainer()
+                LedgerViewModel(container.expenseRepository, container.settlementRepository, householdId, myUid)
+            }
+        }
     }
 }

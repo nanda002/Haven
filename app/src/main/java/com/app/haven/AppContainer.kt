@@ -1,0 +1,38 @@
+package com.app.haven
+
+import android.content.Context
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import androidx.lifecycle.viewmodel.CreationExtras
+import com.app.haven.actions.ExpenseActions
+import com.app.haven.actions.ExpenseRepository
+import com.app.haven.actions.HouseholdActions
+import com.app.haven.actions.SettleExpenseActions
+import com.app.haven.actions.SettleExpenseRepository
+import com.app.haven.actions.UserActions
+import com.app.haven.data.local.HavenDatabase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+
+// Manual dependency injection: the only place that knows about Room and Firebase.
+// It builds the data layer once; ViewModel factories take what they need from here,
+// so screens only ever ask for their ViewModel.
+class AppContainer(context: Context) {
+    private val localDb = HavenDatabase.get(context)
+    private val firestore = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
+
+    val userActions = UserActions(auth, firestore)
+    val householdActions = HouseholdActions(auth, firestore)
+    val expenseRepository: ExpenseActions = ExpenseRepository(localDb.expenseDao(), firestore)
+    val settlementRepository: SettleExpenseActions = SettleExpenseRepository(localDb.settlementDao(), firestore)
+
+    // on logout: remove the household's local copy, so the next user on this phone doesn't see it
+    suspend fun clearLocalData() {
+        localDb.expenseDao().clearAll()
+        localDb.settlementDao().clearAll()
+    }
+}
+
+// lets a ViewModel factory reach the container
+fun CreationExtras.appContainer(): AppContainer =
+    (this[APPLICATION_KEY] as HavenApplication).container

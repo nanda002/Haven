@@ -16,8 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.app.haven.actions.ExpenseRepository
-import com.app.haven.actions.SettleExpenseRepository
 import com.app.haven.domain.expense.Expense
 import com.app.haven.domain.expense.ExpenseCategory
 import com.app.haven.viewmodel.expense.LedgerUiState
@@ -33,9 +31,7 @@ fun LedgerScreen(
     onAddExpense: () -> Unit,
     onEditExpense: (expenseId: String) -> Unit,
     onOpenBalances: () -> Unit,
-    vm: LedgerViewModel = viewModel {
-        LedgerViewModel(ExpenseRepository(), SettleExpenseRepository(), householdId, myUid)
-    }
+    vm: LedgerViewModel = viewModel(factory = LedgerViewModel.factory(householdId, myUid))
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     val deleteError by vm.deleteError.collectAsStateWithLifecycle()

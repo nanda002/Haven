@@ -3,6 +3,9 @@ package com.app.haven.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.app.haven.appContainer
 import com.app.haven.actions.UserActions
 import com.app.haven.actions.friendlyMessage
 import kotlinx.coroutines.TimeoutCancellationException
@@ -22,7 +25,11 @@ sealed interface SessionState {
 }
 
 // Decides which part of the app to show: login, household setup, or the main tabs
-class SessionViewModel(private val users: UserActions = UserActions()) : ViewModel() {
+class SessionViewModel(
+    private val users: UserActions = UserActions(),
+    //clears the phone's local Room copy on logout
+    private val clearLocalData: suspend () -> Unit = {}
+) : ViewModel() {
     private val _state = MutableStateFlow<SessionState>(SessionState.Loading)
     val state: StateFlow<SessionState> = _state.asStateFlow()
 
@@ -55,5 +62,15 @@ class SessionViewModel(private val users: UserActions = UserActions()) : ViewMod
     fun logOut() {
         users.logOut()
         _state.value = SessionState.SignedOut
+        viewModelScope.launch { clearLocalData() }
+    }
+
+    companion object {
+        val Factory = viewModelFactory {
+            initializer {
+                val container = appContainer()
+                SessionViewModel(container.userActions, container::clearLocalData)
+            }
+        }
     }
 }
