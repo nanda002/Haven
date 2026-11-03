@@ -1,6 +1,5 @@
 package com.app.haven.domain.expense
 
-import com.app.haven.data.model.Expense
 import java.math.BigDecimal
 
 //*the domain is for pure business logic, it does not touch upon the firebase, compose, view, view models, etc
@@ -40,6 +39,13 @@ fun validateShares(amountCents: Long, shares: Map<String, Long>): String? = when
     shares.isEmpty() -> "Pick at least one person"
     shares.values.any { it < 0 } -> "Amounts can't be negative"
     remainingCents(amountCents, shares) != 0L -> "Amounts must add up to the total"
+    else -> null
+}
+
+fun validateSettlement(amountCents: Long?, balanceCents: Long): String? = when {
+    amountCents == null -> "Enter an amount greater than 0"
+    amountCents <= 0 -> "Enter an amount greater than 0"
+    amountCents > balanceCents -> "Can't be more than what's owed"
     else -> null
 }
 
