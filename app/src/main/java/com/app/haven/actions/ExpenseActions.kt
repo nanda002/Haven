@@ -1,5 +1,6 @@
 package com.app.haven.actions
 
+import android.util.Log
 import com.app.haven.data.local.daos.ExpenseDao
 import com.app.haven.data.local.entities.toDomain
 import com.app.haven.data.local.entities.toEntity
@@ -64,7 +65,10 @@ class ExpenseRepository(
             validateShares(expense.amountCents, expense.shares)?.let {
                 throw IllegalArgumentException(it)
             }
-            expenses(householdId).add(expense.toData()).await()
+            //removing await() since it lags real time when saving an expense on the add expense
+            //form. Writes are anyways queued in firestore's cache
+            //expenses(householdId).add(expense.toData()).await()
+            expenses(householdId).add(expense.toData()).addOnFailureListener { e -> Log.e("Expense Repo", "add failed on the server") }
             Unit
         }
 
@@ -84,14 +88,14 @@ class ExpenseRepository(
                     "paidByName" to expense.paidByName,
                     "shares" to expense.shares
                 )
-            ).await()
+            ).addOnFailureListener { e -> Log.e("Expense Repo", "update failed on the server") }
             Unit
         }
 
     override suspend fun deleteExpense(householdId: String, expenseId: String): Result<Unit> =
         runCatching {
             require(expenseId.isNotBlank()) { "Missing expense id" }
-            expenses(householdId).document(expenseId).delete().await()
+            expenses(householdId).document(expenseId).delete().addOnFailureListener { e -> Log.e("Expense Repo", "delete failed on the server") }
             Unit
         }
 }
