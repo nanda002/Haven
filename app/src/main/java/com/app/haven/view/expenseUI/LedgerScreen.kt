@@ -1,6 +1,5 @@
 package com.app.haven.view.expenseUI
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,11 +12,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.domain.expense.Expense
 import com.app.haven.domain.expense.ExpenseCategory
+import com.app.haven.ui.theme.LedgerBackground
+import com.app.haven.ui.theme.LedgerCard
+import com.app.haven.ui.theme.LedgerMuted
+import com.app.haven.ui.theme.LedgerText
 import com.app.haven.viewmodel.expense.LedgerUiState
 import com.app.haven.viewmodel.expense.LedgerViewModel
 import java.util.Locale
@@ -46,7 +51,7 @@ fun LedgerScreen(
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
             title = { Text("Delete expense?") },
-            text = { Text("\"${e.description}\" (${e.amountCents.money()}) will be removed for everyone in the household.") },
+            text = { Text("\"${e.description.capitalized()}\" (${e.amountCents.money()}) will be removed for everyone in the household.") },
             confirmButton = {
                 TextButton({ vm.onDelete(e.id); pendingDelete = null }) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
@@ -58,10 +63,14 @@ fun LedgerScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),   // outer MainScaffold already handles insets
+        containerColor = LedgerBackground,       // pastel blue behind the white cards
+        contentColor = LedgerText,
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
-
-            FloatingActionButton(onAddExpense) { Icon(Icons.Default.Add, contentDescription = "Add expense") }
+            // white with a black + so it pops off the blue background
+            FloatingActionButton(onAddExpense, containerColor = LedgerCard, contentColor = LedgerText) {
+                Icon(Icons.Default.Add, contentDescription = "Add expense")
+            }
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
@@ -78,13 +87,33 @@ fun LedgerScreen(
                 is LedgerUiState.Success -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // balance card, tap to open the settle up screen
                     item {
-                        Card(onClick = onOpenBalances, modifier = Modifier.fillMaxWidth()) {
+                        ElevatedCard(
+                            onClick = onOpenBalances,
+                            // extra space between the balance card and the expenses below
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            colors = CardDefaults.elevatedCardColors(containerColor = LedgerCard, contentColor = LedgerText)
+                        ) {
                             Column(Modifier.padding(16.dp)) {
-                                Text(
-                                    "You owe ${s.balance.iOweCents.money()} · You're owed ${s.balance.owedToMeCents.money()}",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Text("Tap to see balances and settle up", style = MaterialTheme.typography.bodySmall)
+                                Row(Modifier.fillMaxWidth()) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text("You owe", style = MaterialTheme.typography.labelLarge)
+                                        Text(
+                                            s.balance.iOweCents.money(),
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text("You're owed", style = MaterialTheme.typography.labelLarge)
+                                        Text(
+                                            s.balance.owedToMeCents.money(),
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Text("Tap to see balances and settle up ›", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
@@ -93,43 +122,87 @@ fun LedgerScreen(
                             Modifier.horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            FilterChip(s.selectedCategory == null, { vm.onCategorySelected(null) }, label = { Text("All") })
+                            CategoryChip("All", s.selectedCategory == null) { vm.onCategorySelected(null) }
                             ExpenseCategory.entries.forEach { c ->
-                                FilterChip(s.selectedCategory == c, { vm.onCategorySelected(c) }, label = { Text(c.name) })
+                                CategoryChip(c.name, s.selectedCategory == c) { vm.onCategorySelected(c) }
                             }
                         }
                     }
                     item { Text("Total: ${s.categoryTotalCents.money()}", style = MaterialTheme.typography.bodySmall) }
                     items(s.rows, key = { it.expense.id }) { row ->
-                        ListItem(
-                            modifier = Modifier.clickable { onEditExpense(row.expense.id) },   // tap a row to edit it
-                            headlineContent = { Text(row.expense.description) },
-                            supportingContent = {
-                                Text("Paid by ${row.expense.paidByName} · your share ${row.userShare.money()}")
-                            },
-                            trailingContent = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(row.expense.amountCents.money())
-                                    Spacer(Modifier.width(8.dp))
-                                    //for showing the data when the expense was created
-                                    Text(
-                                        row.expense.createdAtMillis?.shortDate() ?: "Pending",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    //for deleting an expense
-                                    IconButton({ pendingDelete = row.expense }) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Delete expense")
+                        // each expense in its own raised box; tap it to edit
+                        ElevatedCard(
+                            onClick = { onEditExpense(row.expense.id) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.elevatedCardColors(containerColor = LedgerCard, contentColor = LedgerText)
+                        ) {
+                            ListItem(
+                                // transparent so the card's white and shadow show through; dark text
+                                colors = ListItemDefaults.colors(
+                                    containerColor = Color.Transparent,
+                                    headlineColor = LedgerText,
+                                    supportingColor = LedgerText,
+                                    trailingIconColor = LedgerText
+                                ),
+                                headlineContent = { Text(row.expense.description.capitalized(), fontWeight = FontWeight.SemiBold) },
+                                supportingContent = {
+                                    // payer and the user's share on separate lines
+                                    Column {
+                                        Text("Paid by ${row.expense.paidByName}")
+                                        Text("Your share ${row.userShare.money()}")
+                                    }
+                                },
+                                trailingContent = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(row.expense.amountCents.money())
+                                        Spacer(Modifier.width(8.dp))
+                                        //for showing the data when the expense was created
+                                        Text(
+                                            row.expense.createdAtMillis?.shortDate() ?: "Pending",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        //for deleting an expense
+                                        IconButton({ pendingDelete = row.expense }) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Delete expense", tint = LedgerMuted)
+                                        }
                                     }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
         }
     }
 }
+
+// category filter chip: the selected one gets a thick border instead of a different background
+@Composable
+private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) },
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = Color.Transparent,
+            selectedContainerColor = Color.Transparent,
+            labelColor = LedgerText,
+            selectedLabelColor = LedgerText
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = selected,
+            borderColor = LedgerText.copy(alpha = 0.4f),
+            selectedBorderColor = LedgerText,
+            borderWidth = 1.dp,
+            selectedBorderWidth = 2.5.dp
+        )
+    )
+}
+
+// "shower curtains" -> "Shower curtains" (display only; the saved text isn't changed)
+private fun String.capitalized(): String = replaceFirstChar { it.uppercase() }
 
 // cents -> "$12.50" (negatives show as "-$1.50")
 fun Long.money(): String {

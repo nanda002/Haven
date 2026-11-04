@@ -9,3 +9,9 @@ val Pink80 = Color(0xFFEFB8C8)
 val Purple40 = Color(0xFF6650a4)
 val PurpleGrey40 = Color(0xFF625b71)
 val Pink40 = Color(0xFF7D5260)
+
+// Ledger screen: pastel blue background with white cards and dark text (fixed, not wallpaper-based)
+val LedgerBackground = Color(0xFFE3F2FD)  // pastel light blue
+val LedgerCard = Color.White
+val LedgerText = Color(0xFF1C1B1F)        // near-black
+val LedgerMuted = Color(0xFF757575)       // grey for secondary icons (e.g. delete); readable on white
