@@ -36,7 +36,7 @@ class SessionViewModel(private val users: UserActions = UserActions()) : ViewMod
             _state.value = if (!signedIn) SessionState.SignedOut
             else try {
                 Log.d("SessionViewModel", "refresh: loading user...")
-                val user = withTimeout(5.seconds) {
+                val user = withTimeout(10.seconds) {
                     users.loadUser()
                 }
                 Log.d("SessionViewModel", "refresh: user loaded, householdId = ${user?.householdId}")

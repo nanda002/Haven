@@ -6,6 +6,10 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
+import com.google.firebase.firestore.Source
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.seconds
+
 // User login and signup logic (backnd)
 class UserActions(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
@@ -33,6 +37,15 @@ class UserActions(
 
     suspend fun loadUser(): User? {
         val uid = auth.currentUser?.uid ?: return null
-        return db.collection("users").document(uid).get().await().toObject(User::class.java)
+        val ref = db.collection("users").document(uid)
+
+        val snapshot = withTimeoutOrNull(3.seconds) {ref.get().await()}
+            //if the above returns null, the try-catch block is executed to access the cache
+            ?: try{
+                ref.get(Source.CACHE).await()
+            } catch (e: Exception) {
+                throw IllegalStateException("You're offline and this phone has no saved data yet. Connect to the internet and try again.")
+            }
+        return snapshot.toObject(User::class.java)
     }
 }
