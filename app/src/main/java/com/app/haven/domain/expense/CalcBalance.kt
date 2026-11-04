@@ -23,7 +23,7 @@ fun withShare(expense: Expense, myUid: String): ShareDetails {
 
 //A recorded payment between two people
 data class Settlement(val fromUid: String, val toUid: String, val amountCents: Long, val createdByUid: String = "",      // who pressed Settle
-                      val createdAtMillis: Long? = null)
+                      val createdAtMillis: Long? = null, val id: String = "")
 
 // Positive netCents: they owe me. Negative: I owe them.
 data class PersonBalance(val uid: String, val netCents: Long)

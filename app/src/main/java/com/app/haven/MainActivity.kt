@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun HavenApp(vm: SessionViewModel = viewModel()) {
+fun HavenApp(vm: SessionViewModel = viewModel(factory = SessionViewModel.Factory)) {
     val state by vm.state.collectAsStateWithLifecycle()
 
     when (val s = state) {

@@ -14,13 +14,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.app.haven.actions.ExpenseRepository
-import com.app.haven.actions.HouseholdActions
-import com.app.haven.actions.SettleExpenseRepository
-import com.app.haven.viewmodel.expense.MemberOption
 import com.app.haven.viewmodel.expense.SettleExpenseViewModel
 import com.app.haven.viewmodel.expense.SettleUiState
-import kotlinx.coroutines.flow.map
 import kotlin.math.abs
 
 // Basic settle-up screen: the user's balance with each member, with a Settle button per member
@@ -29,13 +24,7 @@ fun SettleExpenseScreen(
     householdId: String,
     myUid: String,
     onClose: () -> Unit,
-    vm: SettleExpenseViewModel = viewModel {
-        SettleExpenseViewModel(
-            ExpenseRepository(), SettleExpenseRepository(), householdId, myUid,
-            HouseholdActions().observeMembers(householdId)
-                .map { list -> list.map { MemberOption(it.uid, it.displayName) } }
-        )
-    }
+    vm: SettleExpenseViewModel = viewModel(factory = SettleExpenseViewModel.factory(householdId, myUid))
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     val dialog by vm.dialog.collectAsStateWithLifecycle()

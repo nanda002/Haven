@@ -15,14 +15,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.app.haven.actions.ExpenseRepository
-import com.app.haven.actions.HouseholdActions
 import com.app.haven.domain.expense.ExpenseCategory
 import com.app.haven.viewmodel.expense.AddExpenseViewModel
-import com.app.haven.viewmodel.expense.MemberOption
 import com.app.haven.viewmodel.expense.SaveStatus
 import com.app.haven.viewmodel.expense.SplitMode
-import kotlinx.coroutines.flow.map
 
 // Basic add/edit expense form; every field calls the matching AddExpenseViewModel event.
 // Pass expenseId to edit an existing expense, leave it null to add a new one.
@@ -32,14 +28,7 @@ fun AddExpenseScreen(
     myUid: String,
     onDone: () -> Unit,
     expenseId: String? = null,
-    vm: AddExpenseViewModel = viewModel {
-        AddExpenseViewModel(
-            ExpenseRepository(), householdId, myUid,
-            HouseholdActions().observeMembers(householdId)
-                .map { list -> list.map { MemberOption(it.uid, it.displayName) } },
-            editingExpenseId = expenseId
-        )
-    }
+    vm: AddExpenseViewModel = viewModel(factory = AddExpenseViewModel.factory(householdId, myUid, expenseId))
 ) {
     val s by vm.uiState.collectAsStateWithLifecycle()
 
@@ -58,9 +47,18 @@ fun AddExpenseScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // close without saving; same as pressing back
-            IconButton(onDone) { Icon(Icons.Default.Close, contentDescription = "Cancel") }
-            Text(if (s.isEditing) "Edit expense" else "Add expense", style = MaterialTheme.typography.headlineSmall)
+            // close; in add mode the unsaved draft is kept for next time
+            IconButton(onDone) { Icon(Icons.Default.Close, contentDescription = "Close") }
+            Text(
+                if (s.isEditing) "Edit expense" else "Add expense",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.weight(1f)
+            )
+            // add mode only: empty the form and delete the draft
+            if (!s.isEditing) TextButton(vm::onClearClicked) { Text("Clear") }
+        }
+        if (s.restoredDraft) {
+            Text("Restored your unsaved draft", style = MaterialTheme.typography.bodySmall)
         }
 
         OutlinedTextField(s.description, vm::onDescriptionChanged, label = { Text("Description") },
