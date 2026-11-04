@@ -60,6 +60,7 @@ fun LedgerScreen(
         contentWindowInsets = WindowInsets(0),   // outer MainScaffold already handles insets
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
+
             FloatingActionButton(onAddExpense) { Icon(Icons.Default.Add, contentDescription = "Add expense") }
         }
     ) { padding ->

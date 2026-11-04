@@ -47,9 +47,18 @@ fun AddExpenseScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // close without saving; same as pressing back
-            IconButton(onDone) { Icon(Icons.Default.Close, contentDescription = "Cancel") }
-            Text(if (s.isEditing) "Edit expense" else "Add expense", style = MaterialTheme.typography.headlineSmall)
+            // close; in add mode the unsaved draft is kept for next time
+            IconButton(onDone) { Icon(Icons.Default.Close, contentDescription = "Close") }
+            Text(
+                if (s.isEditing) "Edit expense" else "Add expense",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.weight(1f)
+            )
+            // add mode only: empty the form and delete the draft
+            if (!s.isEditing) TextButton(vm::onClearClicked) { Text("Clear") }
+        }
+        if (s.restoredDraft) {
+            Text("Restored your unsaved draft", style = MaterialTheme.typography.bodySmall)
         }
 
         OutlinedTextField(s.description, vm::onDescriptionChanged, label = { Text("Description") },

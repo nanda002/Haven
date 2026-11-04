@@ -6,16 +6,21 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.app.haven.appContainer
 import com.app.haven.actions.ExpenseActions
+import com.app.haven.actions.ExpenseDraftActions
 import com.app.haven.domain.expense.Expense
 import com.app.haven.domain.expense.ExpenseCategory
+import com.app.haven.domain.expense.ExpenseDraft
 import com.app.haven.domain.expense.parseDollarsToCents
 import com.app.haven.domain.expense.remainingCents
 import com.app.haven.domain.expense.splitExpenseLogic
 import com.app.haven.domain.expense.validateShares
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -44,7 +49,8 @@ data class AddExpenseUiState(
     val saveError: String? = null,
     val saveStatus: SaveStatus = SaveStatus.EDITING,
     val isEditing: Boolean = false,          // true when changing an existing expense
-    val loadingExpense: Boolean = false      // edit mode: waiting for the expense to load
+    val loadingExpense: Boolean = false,     // edit mode: waiting for the expense to load
+    val restoredDraft: Boolean = false       // add mode: the form was filled from a saved draft
 )
 
 //editingExpenseId == null -> adding a new expense, otherwise editing that one
@@ -53,7 +59,9 @@ class AddExpenseViewModel(
     private val householdId: String,
     private val myUid: String,
     members: Flow<List<MemberOption>>,
-    private val editingExpenseId: String? = null
+    private val editingExpenseId: String? = null,
+    //unsaved add-expense forms, kept only on this phone
+    private val drafts: ExpenseDraftActions? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -70,6 +78,11 @@ class AddExpenseViewModel(
     //kept so editing doesn't rename the payer if they're no longer in the member list
     private var originalPaidByName: String? = null
 
+    //true once the form was filled from a saved draft, so the member list doesn't overwrite who's ticked
+    private var restoredFromDraft = false
+    //true after a successful save, so a last pending auto-save can't bring the draft back
+    private var draftFinished = false
+
     init {
         viewModelScope.launch {
             members.collect { list ->
@@ -80,7 +93,8 @@ class AddExpenseViewModel(
                         s.copy(
                             members = list,
                             // when editing, who is included comes from the saved expense instead
-                            includedUids = if (first && editingExpenseId == null) list.map { it.uid }.toSet()
+                            // a restored draft also keeps its own ticked members
+                            includedUids = if (first && editingExpenseId == null && !restoredFromDraft) list.map { it.uid }.toSet()
                                 else s.includedUids
                         )
                     )
@@ -88,6 +102,39 @@ class AddExpenseViewModel(
             }
         }
         editingExpenseId?.let { loadExpense(it) }
+        if (editingExpenseId == null && drafts != null) startDrafts(drafts)
+    }
+
+    //add mode only: fill the form from a saved draft, then keep the draft up to date as the user types
+    @OptIn(FlowPreview::class)
+    private fun startDrafts(drafts: ExpenseDraftActions) {
+        viewModelScope.launch {
+            drafts.loadDraft(householdId)?.let { d ->
+                restoredFromDraft = true
+                _uiState.update { s ->
+                    recompute(
+                        s.copy(
+                            description = d.description,
+                            amountText = d.amountText,
+                            category = d.category,
+                            paidByUid = d.paidByUid.ifBlank { myUid },
+                            splitMode = if (d.evenSplit) SplitMode.EVEN else SplitMode.CUSTOM,
+                            includedUids = d.includedUids,
+                            customAmountTexts = d.customAmountTexts,
+                            restoredDraft = true
+                        )
+                    )
+                }
+            }
+            //save shortly after the user stops typing, not on every key press
+            _uiState.map { it.toDraft() }
+                .distinctUntilChanged()
+                .debounce(500)
+                .collect { d ->
+                    if (draftFinished) return@collect
+                    if (d.isBlank()) drafts.deleteDraft(householdId) else drafts.saveDraft(householdId, d)
+                }
+        }
     }
 
     private fun loadExpense(expenseId: String) {
@@ -202,7 +249,14 @@ class AddExpenseViewModel(
             val result = if (editingExpenseId != null) repository.updateExpense(householdId, expense)
                 else repository.addExpense(householdId, expense)
             result
-                .onSuccess { _uiState.update { it.copy(saveStatus = SaveStatus.SAVED) } }
+                .onSuccess {
+                    //the expense is saved now, so its draft isn't needed anymore
+                    if (editingExpenseId == null) {
+                        draftFinished = true
+                        drafts?.deleteDraft(householdId)
+                    }
+                    _uiState.update { it.copy(saveStatus = SaveStatus.SAVED) }
+                }
                 .onFailure { e ->
                     _uiState.update {
                         it.copy(saveStatus = SaveStatus.EDITING, saveError = e.message ?: "Couldn't save the expense")
@@ -213,7 +267,36 @@ class AddExpenseViewModel(
 
     fun onSavedHandled() = _uiState.update { it.copy(saveStatus = SaveStatus.EDITING) }
 
+    //start fresh: empty form (everyone ticked again) and no saved draft
+    fun onClearClicked() {
+        _uiState.update { s ->
+            recompute(
+                AddExpenseUiState(
+                    paidByUid = myUid,
+                    members = s.members,
+                    includedUids = s.members.map { it.uid }.toSet()
+                )
+            )
+        }
+        viewModelScope.launch { drafts?.deleteDraft(householdId) }
+    }
+
     // ---- helpers ----
+
+    private fun AddExpenseUiState.toDraft() = ExpenseDraft(
+        householdId = householdId,
+        description = description,
+        amountText = amountText,
+        category = category,
+        paidByUid = paidByUid,
+        evenSplit = splitMode == SplitMode.EVEN,
+        includedUids = includedUids,
+        customAmountTexts = customAmountTexts
+    )
+
+    //nothing typed yet, so there's nothing worth keeping
+    private fun ExpenseDraft.isBlank() =
+        description.isBlank() && amountText.isBlank() && customAmountTexts.values.all { it.isBlank() }
 
     private fun customShares(s: AddExpenseUiState): Map<String, Long> =
         s.customAmountTexts.mapNotNull { (uid, text) ->
@@ -242,7 +325,8 @@ class AddExpenseViewModel(
                     container.expenseRepository, householdId, myUid,
                     container.householdActions.observeMembers(householdId)
                         .map { list -> list.map { MemberOption(it.uid, it.displayName) } },
-                    editingExpenseId = expenseId
+                    editingExpenseId = expenseId,
+                    drafts = container.expenseDraftRepository
                 )
             }
         }
