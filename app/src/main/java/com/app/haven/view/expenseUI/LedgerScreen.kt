@@ -110,6 +110,14 @@ fun LedgerScreen(
                             trailingContent = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(row.expense.amountCents.money())
+                                    Spacer(Modifier.width(8.dp))
+                                    //for showing the data when the expense was created
+                                    Text(
+                                        row.expense.createdAtMillis?.shortDate() ?: "Pending",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    //for deleting an expense
                                     IconButton({ pendingDelete = row.expense }) {
                                         Icon(Icons.Default.Delete, contentDescription = "Delete expense")
                                     }
@@ -127,5 +135,15 @@ fun LedgerScreen(
 fun Long.money(): String {
     val a = abs(this)
     return (if (this < 0) "-$" else "$") + String.format(Locale.US, "%d.%02d", a / 100, a % 100)
+}
+
+fun Long.shortDate(): String {
+    val date = java.util.Date(this)
+    val thisYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+    val year = java.util.Calendar.getInstance().apply { time = date }.get(java.util.Calendar.YEAR)
+    //if expense was created this year, we only show the month and date, else we show all three
+    //including the year
+    val pattern = if (year == thisYear) "MMM d" else "MMM d, yyyy"
+    return java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault()).format(date)
 }
 
