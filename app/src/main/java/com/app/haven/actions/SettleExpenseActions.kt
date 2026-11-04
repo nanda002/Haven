@@ -1,6 +1,7 @@
 package com.app.haven.actions
 
 
+import android.util.Log
 import com.app.haven.data.local.daos.SettlementDao
 import com.app.haven.data.local.entities.toDomain
 import com.app.haven.data.local.entities.toEntity
@@ -62,7 +63,7 @@ class SettleExpenseRepository (
             require(settlement.amountCents > 0) { "Enter an amount > 0" }
             require(settlement.fromUid.isNotBlank()) { "Enter an amount > 0" }
             require(settlement.toUid.isNotBlank()) { "Enter an amount > 0" }
-            settlements(householdId).add(settlement.toData()).await()
+            settlements(householdId).add(settlement.toData()).addOnFailureListener { e -> Log.e("Settlement Repo", "add failed on the server") }
             Unit
         }
 }
