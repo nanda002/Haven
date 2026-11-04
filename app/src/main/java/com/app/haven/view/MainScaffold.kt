@@ -139,9 +139,16 @@ private fun HomeScreen(onLogout: () -> Unit, vm: HomeViewModel = viewModel()) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.load() }
 
+    // loading: spinner in the middle of the screen, like the other screens
+    if (ui.loading) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when {
-            ui.loading -> CircularProgressIndicator()
             ui.error != null -> {
                 Text(ui.error!!, color = MaterialTheme.colorScheme.error)
                 Button({ vm.load() }) { Text("Retry") }
