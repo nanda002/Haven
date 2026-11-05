@@ -1,4 +1,4 @@
-package com.app.haven.view
+package com.app.haven.navigation
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -26,7 +26,7 @@ import com.app.haven.data.model.User
 import com.app.haven.view.expenseUI.AddExpenseScreen
 import com.app.haven.view.expenseUI.LedgerScreen
 import com.app.haven.view.expenseUI.SettleExpenseScreen
-import com.app.haven.viewmodel.HomeViewModel
+import com.app.haven.view.homeUI.HomeScreen
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
@@ -47,6 +47,15 @@ fun MainScaffold(onLogout: () -> Unit) {
         value = runCatching { UserActions().loadUser() }
     }
 
+    // same behavior as tapping a bottom-bar tab (keeps tab highlight + saved state)
+    val goToTab: (String) -> Unit = { route ->
+        nav.navigate(route) {
+            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -54,13 +63,7 @@ fun MainScaffold(onLogout: () -> Unit) {
                     NavigationBarItem(
                         // hierarchy keeps the Ledger tab selected on its inner screens (e.g. Add expense)
                         selected = currentDest?.hierarchy?.any { it.route == tab.route } == true,
-                        onClick = {
-                            nav.navigate(tab.route) {
-                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
+                        onClick = { goToTab(tab.route) },
                         icon = { Icon(tab.icon, contentDescription = tab.label) },
                         label = { Text(tab.label) }
                     )
@@ -69,7 +72,15 @@ fun MainScaffold(onLogout: () -> Unit) {
         }
     ) { padding ->
         NavHost(nav, startDestination = "home", modifier = Modifier.padding(padding)) {
-            composable("home") { HomeScreen(onLogout) }
+            composable("home") {
+                val user = userResult?.getOrNull()
+                HomeScreen(
+                    householdId = user?.householdId,
+                    myUid = user?.uid,
+                    onOpenLedger = { goToTab("ledger_tab") },
+                    onLogout = onLogout
+                )
+            }
             navigation(startDestination = "ledger", route = "ledger_tab") {
                 composable("ledger") {
                     WithHousehold(userResult) { householdId, myUid ->
@@ -129,37 +140,5 @@ private fun WithHousehold(
 private fun Placeholder(title: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text("$title coming soon", style = MaterialTheme.typography.titleMedium)
-    }
-}
-
-// Temporary home: shows the household and its invite code so roommates can join.
-// This becomes the dashboard (balances + chores due) later.
-@Composable
-private fun HomeScreen(onLogout: () -> Unit, vm: HomeViewModel = viewModel()) {
-    val ui by vm.ui.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { vm.load() }
-
-    // loading: spinner in the middle of the screen, like the other screens
-    if (ui.loading) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-        return
-    }
-
-    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        when {
-            ui.error != null -> {
-                Text(ui.error!!, color = MaterialTheme.colorScheme.error)
-                Button({ vm.load() }) { Text("Retry") }
-            }
-            else -> ui.household?.let { h ->
-                Text(h.name, style = MaterialTheme.typography.headlineMedium)
-                Text("Invite code: ${h.inviteCode}", style = MaterialTheme.typography.titleMedium)
-                Text("${h.memberIds.size} member(s)")
-            }
-        }
-        Spacer(Modifier.weight(1f))
-        OutlinedButton(onLogout) { Text("Log out") }
     }
 }

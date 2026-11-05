@@ -1,4 +1,4 @@
-package com.app.haven.viewmodel
+package com.app.haven.viewmodel.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

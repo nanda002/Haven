@@ -1,4 +1,4 @@
-package com.app.haven.view
+package com.app.haven.view.authUI
 
 import android.util.Log
 import androidx.compose.foundation.layout.*
@@ -12,7 +12,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.app.haven.viewmodel.AuthViewModel
+import com.app.haven.viewmodel.auth.AuthViewModel
 
 @Composable
 fun AuthScreen(onAuthenticated: () -> Unit, vm: AuthViewModel = viewModel()) {

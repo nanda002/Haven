@@ -1,4 +1,4 @@
-package com.app.haven.view
+package com.app.haven.view.householdUI
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -10,7 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.app.haven.viewmodel.HouseholdViewModel
+import com.app.haven.viewmodel.household.HouseholdViewModel
 
 private enum class SetupMode { CHOOSE, CREATE, JOIN }
 
