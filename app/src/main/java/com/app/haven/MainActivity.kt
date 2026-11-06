@@ -14,9 +14,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.ui.theme.HavenTheme
-import com.app.haven.view.AuthScreen
-import com.app.haven.view.HouseholdSetupScreen
-import com.app.haven.view.MainScaffold
+import com.app.haven.view.authUI.AuthScreen
+import com.app.haven.view.householdUI.HouseholdSetupScreen
+import com.app.haven.navigation.MainScaffold
 import com.app.haven.viewmodel.SessionState
 import com.app.haven.viewmodel.SessionViewModel
 
@@ -44,7 +44,7 @@ fun HavenApp(vm: SessionViewModel = viewModel(factory = SessionViewModel.Factory
         }
         SessionState.SignedOut -> AuthScreen(onAuthenticated = vm::refresh)
         SessionState.NeedsHousehold -> HouseholdSetupScreen(onDone = vm::refresh, onLogout = vm::logOut)
-        SessionState.InHousehold -> MainScaffold(onLogout = vm::logOut)
+        SessionState.InHousehold -> MainScaffold(onLogout = vm::logOut, onLeftHousehold = vm::onLeftHousehold)
         is SessionState.Error -> Column(
             Modifier.fillMaxSize().padding(24.dp),
             verticalArrangement = Arrangement.Center,

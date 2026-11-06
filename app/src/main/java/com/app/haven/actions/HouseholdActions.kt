@@ -100,20 +100,6 @@ class HouseholdActions(
             .toObject(Household::class.java)
     }
 
-    // Live list of active members, used for "Paid by" and splitting expenses
-    fun observeMembers(householdId: String): Flow<List<Member>> = callbackFlow {
-        val registration = db.collection("households").document(householdId).collection("members")
-            .whereEqualTo("active", true)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
-                }
-                trySend(snapshot?.toObjects(Member::class.java) ?: emptyList())
-            }
-        awaitClose { registration.remove() }
-    }
-
     private suspend fun uniqueInviteCode(): String {
         repeat(5) {
             val code = (1..6).map { alphabet[random.nextInt(alphabet.length)] }.joinToString("")
@@ -122,5 +108,49 @@ class HouseholdActions(
             if (!taken) return code
         }
         error("Couldn't generate an invite code, please try again")
+    }
+
+    // New code replaces the old one; the old one stops working immediately (join looks codes up by query)
+    suspend fun regenerateInviteCode(): String {
+        val uid = uid()
+        val householdId = db.collection("users").document(uid).get().await()
+            .getString("householdId") ?: error("You're not in a household")
+        val code = uniqueInviteCode()
+        db.collection("households").document(householdId).update("inviteCode", code).await()
+        return code
+    }
+
+    // Leaves the current household. Member doc is kept (active=false) so old expenses still show their name
+    suspend fun leaveHousehold() {
+        val uid = uid()
+        val userRef = db.collection("users").document(uid)
+        db.runTransaction { tx ->
+            val householdId = tx.get(userRef).getString("householdId")
+                ?: throw IllegalStateException("You're not in a household")
+            val householdRef = db.collection("households").document(householdId)
+
+            tx.update(householdRef, "memberIds", FieldValue.arrayRemove(uid))
+            tx.update(householdRef.collection("members").document(uid), "active", false)
+            tx.update(userRef, mapOf<String, Any?>("householdId" to null))
+            null
+        }.await()
+    }
+
+    // Live list of active members, used for "Paid by" and splitting expenses
+    fun observeMembers(householdId: String): Flow<List<Member>> = observeMembersWhere(householdId, active = true)
+
+    fun observePastMembers(householdId: String): Flow<List<Member>> = observeMembersWhere(householdId, active = false)
+
+    private fun observeMembersWhere(householdId: String, active: Boolean): Flow<List<Member>> = callbackFlow {
+        val registration = db.collection("households").document(householdId).collection("members")
+            .whereEqualTo("active", active)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                trySend(snapshot?.toObjects(Member::class.java) ?: emptyList())
+            }
+        awaitClose { registration.remove() }
     }
 }

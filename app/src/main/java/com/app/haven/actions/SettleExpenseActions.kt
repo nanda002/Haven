@@ -8,9 +8,7 @@ import com.app.haven.data.local.entities.toEntity
 import com.app.haven.data.model.SettleExpenses
 import com.app.haven.data.model.toData
 import com.app.haven.data.model.toDomain
-import com.app.haven.domain.expense.Expense
 import com.app.haven.domain.expense.Settlement
-import com.app.haven.domain.expense.validateShares
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
@@ -18,7 +16,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 interface SettleExpenseActions {
     fun getSettlements(householdId: String): Flow<List<Settlement>>
