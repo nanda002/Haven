@@ -25,7 +25,7 @@ import com.app.haven.view.expenseUI.LedgerScreen
 import com.app.haven.view.expenseUI.SettleExpenseScreen
 import com.app.haven.view.homeUI.HomeScreen
 import com.app.haven.view.homeUI.HouseholdDetailsScreen
-import com.app.haven.view.homeUI.ProfileScreen
+import com.app.haven.view.profileUI.ProfileScreen
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
@@ -116,7 +116,8 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
                     }
                 }
             }
-            composable("profile") { ProfileScreen(onBack = { nav.popBackStack() }) }
+            // opened from "Profile" in the Home menu
+            composable("profile") { ProfileScreen(onClose = { nav.popBackStack() }, onLogout = onLogout) }
             composable("household_details") {
                 val user = userResult?.getOrNull()
                 HouseholdDetailsScreen(myUid = user?.uid, onBack = { nav.popBackStack() })
