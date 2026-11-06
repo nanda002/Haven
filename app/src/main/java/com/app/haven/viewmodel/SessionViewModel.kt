@@ -65,6 +65,14 @@ class SessionViewModel(
         viewModelScope.launch { clearLocalData() }
     }
 
+    // after leaving a household: wipe the old household's local copy, then re-check where the user belongs
+    fun onLeftHousehold() {
+        viewModelScope.launch {
+            clearLocalData()
+            refresh()
+        }
+    }
+
     companion object {
         val Factory = viewModelFactory {
             initializer {

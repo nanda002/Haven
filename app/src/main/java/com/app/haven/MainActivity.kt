@@ -44,7 +44,7 @@ fun HavenApp(vm: SessionViewModel = viewModel(factory = SessionViewModel.Factory
         }
         SessionState.SignedOut -> AuthScreen(onAuthenticated = vm::refresh)
         SessionState.NeedsHousehold -> HouseholdSetupScreen(onDone = vm::refresh, onLogout = vm::logOut)
-        SessionState.InHousehold -> MainScaffold(onLogout = vm::logOut)
+        SessionState.InHousehold -> MainScaffold(onLogout = vm::logOut, onLeftHousehold = vm::onLeftHousehold)
         is SessionState.Error -> Column(
             Modifier.fillMaxSize().padding(24.dp),
             verticalArrangement = Arrangement.Center,

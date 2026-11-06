@@ -6,21 +6,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.view.expenseUI.money
 import com.app.haven.viewmodel.home.HomeBalanceState
-import com.app.haven.viewmodel.home.HomeBalanceViewModel
 
 // Dashboard card: what I'm owed + what I owe. Tap -> Ledger tab
 @Composable
-fun HomeBalanceCard(
-    householdId: String,
-    myUid: String,
-    onClick: () -> Unit,
-    vm: HomeBalanceViewModel = viewModel(factory = HomeBalanceViewModel.factory(householdId, myUid))
-) {
-    val state by vm.state.collectAsStateWithLifecycle()
+fun HomeBalanceCard(state: HomeBalanceState, onClick: () -> Unit){
 
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

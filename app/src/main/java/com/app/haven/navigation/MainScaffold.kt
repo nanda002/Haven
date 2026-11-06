@@ -11,9 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -27,6 +24,8 @@ import com.app.haven.view.expenseUI.AddExpenseScreen
 import com.app.haven.view.expenseUI.LedgerScreen
 import com.app.haven.view.expenseUI.SettleExpenseScreen
 import com.app.haven.view.homeUI.HomeScreen
+import com.app.haven.view.homeUI.HouseholdDetailsScreen
+import com.app.haven.view.homeUI.ProfileScreen
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
@@ -38,7 +37,7 @@ private val tabs = listOf(
 )
 
 @Composable
-fun MainScaffold(onLogout: () -> Unit) {
+fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
     val nav = rememberNavController()
     val currentDest = nav.currentBackStackEntryAsState().value?.destination
 
@@ -62,7 +61,8 @@ fun MainScaffold(onLogout: () -> Unit) {
                 tabs.forEach { tab ->
                     NavigationBarItem(
                         // hierarchy keeps the Ledger tab selected on its inner screens (e.g. Add expense)
-                        selected = currentDest?.hierarchy?.any { it.route == tab.route } == true,
+                        selected = currentDest?.hierarchy?.any { it.route == tab.route } == true ||
+                                (tab.route == "home" && currentDest?.route in setOf("profile", "household_details")),
                         onClick = { goToTab(tab.route) },
                         icon = { Icon(tab.icon, contentDescription = tab.label) },
                         label = { Text(tab.label) }
@@ -77,7 +77,10 @@ fun MainScaffold(onLogout: () -> Unit) {
                 HomeScreen(
                     householdId = user?.householdId,
                     myUid = user?.uid,
+                    onOpenProfile = { nav.navigate("profile") },
+                    onOpenHouseholdDetails = { nav.navigate("household_details") },
                     onOpenLedger = { goToTab("ledger_tab") },
+                    onLeftHousehold = onLeftHousehold,
                     onLogout = onLogout
                 )
             }
@@ -110,6 +113,11 @@ fun MainScaffold(onLogout: () -> Unit) {
                         AddExpenseScreen(householdId, myUid, onDone = { nav.popBackStack() }, expenseId = expenseId)
                     }
                 }
+            }
+            composable("profile") { ProfileScreen(onBack = { nav.popBackStack() }) }
+            composable("household_details") {
+                val user = userResult?.getOrNull()
+                HouseholdDetailsScreen(myUid = user?.uid, onBack = { nav.popBackStack() })
             }
             composable("chores") { Placeholder("Chores") }    // replace with ChoresScreen
             composable("pantry") { Placeholder("Pantry") }    // replace with GroceryScreen
