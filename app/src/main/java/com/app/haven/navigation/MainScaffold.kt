@@ -46,12 +46,14 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
         value = runCatching { UserActions().loadUser() }
     }
 
-    // same behavior as tapping a bottom-bar tab (keeps tab highlight + saved state)
+    // same behavior as tapping a bottom-bar tab (keeps tab highlight)
+    // tabs always open at their main screen, so e.g. a half-filled Add expense form isn't brought back
+    // when returning to the Ledger (unsaved form text is still kept as a draft)
     val goToTab: (String) -> Unit = { route ->
         nav.navigate(route) {
-            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+            popUpTo(nav.graph.findStartDestination().id) { saveState = false }
             launchSingleTop = true
-            restoreState = true
+            restoreState = false
         }
     }
 
