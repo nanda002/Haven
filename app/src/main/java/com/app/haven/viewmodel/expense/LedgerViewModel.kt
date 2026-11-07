@@ -13,8 +13,10 @@ import com.app.haven.domain.expense.ExpenseCategory
 import com.app.haven.domain.expense.Settlement
 import com.app.haven.domain.expense.ShareDetails
 import com.app.haven.domain.expense.calculateBalances
+import com.app.haven.domain.expense.involvesFormerMember
 import com.app.haven.domain.expense.withShare
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +24,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -47,11 +51,19 @@ class LedgerViewModel(
     private val repository: ExpenseActions,
     private val settlements: SettleExpenseActions,
     private val householdId: String,
-    private val myUid: String
+    private val myUid: String,
+    //uids of members still in the household; used to lock expenses that involve someone who left
+    activeMemberUids: Flow<Set<String>>
 ) : ViewModel() {
 
     private val selectedCategory = MutableStateFlow<ExpenseCategory?>(null)
     private val retryCount = MutableStateFlow(0)
+
+    //null = not known yet; members can't fail the whole ledger, they only decide what's locked
+    private val activeUids: Flow<Set<String>?> = activeMemberUids
+        .map<Set<String>, Set<String>?> { it }
+        .onStart { emit(null) }
+        .catch { emit(null) }
 
     //settlements are included so the balance card matches the settle up screen
     val uiState: StateFlow<LedgerUiState> = retryCount
@@ -59,9 +71,10 @@ class LedgerViewModel(
             combine(
                 repository.getExpenses(householdId),
                 settlements.getSettlements(householdId),
-                selectedCategory
-            ) { expenses, settlementList, category ->
-                buildState(expenses, settlementList, category)
+                selectedCategory,
+                activeUids
+            ) { expenses, settlementList, category, active ->
+                buildState(expenses, settlementList, category, active)
             }.catch { e ->
                 emit(LedgerUiState.Error(e.message ?: "Couldn't load expenses"))
             }
@@ -78,6 +91,12 @@ class LedgerViewModel(
 
     //the live expenses listener removes the row and updates the balance on its own
     fun onDelete(expenseId: String) {
+        //safety net: the screen hides delete on locked rows, but don't trust that alone
+        val row = (uiState.value as? LedgerUiState.Success)?.rows?.firstOrNull { it.expense.id == expenseId }
+        if (row?.locked == true) {
+            _deleteError.value = LOCKED_MESSAGE
+            return
+        }
         viewModelScope.launch {
             repository.deleteExpense(householdId, expenseId)
                 .onFailure { e -> _deleteError.value = e.message ?: "Couldn't delete the expense" }
@@ -90,12 +109,13 @@ class LedgerViewModel(
     private fun buildState(
         expenses: List<Expense>,
         settlementList: List<Settlement>,
-        category: ExpenseCategory?
+        category: ExpenseCategory?,
+        active: Set<String>?
     ): LedgerUiState {
         if (expenses.isEmpty()) return LedgerUiState.Empty
         val visible = expenses.filter { category == null || it.category == category }
         return LedgerUiState.Success(
-            rows = visible.map { withShare(it, myUid) },
+            rows = visible.map { withShare(it, myUid).copy(locked = involvesFormerMember(it, active)) },
             balance = calculateBalances(expenses, myUid, settlementList),
             selectedCategory = category,
             categoryTotalCents = visible.sumOf { it.amountCents }
@@ -103,11 +123,16 @@ class LedgerViewModel(
     }
 
     companion object {
+        const val LOCKED_MESSAGE = "Someone in this expense has left the household, so it can't be changed."
+
         //the screen asks for this; the repositories come from the app container
         fun factory(householdId: String, myUid: String) = viewModelFactory {
             initializer {
                 val container = appContainer()
-                LedgerViewModel(container.expenseRepository, container.settlementRepository, householdId, myUid)
+                LedgerViewModel(
+                    container.expenseRepository, container.settlementRepository, householdId, myUid,
+                    container.householdActions.observeMembers(householdId).map { list -> list.map { it.uid }.toSet() }
+                )
             }
         }
     }

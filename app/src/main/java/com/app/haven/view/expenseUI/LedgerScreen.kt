@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +26,7 @@ import com.app.haven.ui.theme.LedgerMuted
 import com.app.haven.ui.theme.LedgerText
 import com.app.haven.viewmodel.expense.LedgerUiState
 import com.app.haven.viewmodel.expense.LedgerViewModel
+import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.abs
 
@@ -41,6 +43,7 @@ fun LedgerScreen(
     val state by vm.uiState.collectAsStateWithLifecycle()
     val deleteError by vm.deleteError.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     var pendingDelete by remember { mutableStateOf<Expense?>(null) }   // expense waiting for confirmation
 
     LaunchedEffect(deleteError) {
@@ -84,7 +87,10 @@ fun LedgerScreen(
                     Text(s.message, color = MaterialTheme.colorScheme.error)
                     Button(vm::onRetry) { Text("Retry") }
                 }
-                is LedgerUiState.Success -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                is LedgerUiState.Success -> LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(top = 16.dp)   // a bit of space above the balance card
+                ) {
                     // balance card, tap to open the settle up screen
                     item {
                         ElevatedCard(
@@ -131,8 +137,12 @@ fun LedgerScreen(
                     item { Text("Total: ${s.categoryTotalCents.money()}", style = MaterialTheme.typography.bodySmall) }
                     items(s.rows, key = { it.expense.id }) { row ->
                         // each expense in its own raised box; tap it to edit
+                        // (locked ones, involving someone who left, just explain why they can't be changed)
                         ElevatedCard(
-                            onClick = { onEditExpense(row.expense.id) },
+                            onClick = {
+                                if (row.locked) scope.launch { snackbar.showSnackbar(LedgerViewModel.LOCKED_MESSAGE) }
+                                else onEditExpense(row.expense.id)
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.elevatedCardColors(containerColor = LedgerCard, contentColor = LedgerText)
                         ) {
@@ -148,7 +158,8 @@ fun LedgerScreen(
                                 supportingContent = {
                                     // payer and the user's share on separate lines
                                     Column {
-                                        Text("Paid by ${row.expense.paidByName}")
+                                        // "you" instead of your own name, so it's clear who paid
+                                        Text("Paid by ${if (row.expense.paidByUid == myUid) "you" else row.expense.paidByName}")
                                         Text("Your share ${row.userShare.money()}")
                                     }
                                 },
@@ -162,9 +173,16 @@ fun LedgerScreen(
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
-                                        //for deleting an expense
-                                        IconButton({ pendingDelete = row.expense }) {
-                                            Icon(Icons.Default.Delete, contentDescription = "Delete expense", tint = LedgerMuted)
+                                        if (row.locked) {
+                                            //locked: no delete, just a lock (same size as the button so rows line up)
+                                            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Default.Lock, contentDescription = "Locked expense", tint = LedgerMuted)
+                                            }
+                                        } else {
+                                            //for deleting an expense
+                                            IconButton({ pendingDelete = row.expense }) {
+                                                Icon(Icons.Default.Delete, contentDescription = "Delete expense", tint = LedgerMuted)
+                                            }
                                         }
                                     }
                                 }

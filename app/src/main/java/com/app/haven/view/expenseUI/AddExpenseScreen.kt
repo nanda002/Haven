@@ -80,7 +80,9 @@ fun AddExpenseScreen(
         Text("Paid by")
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             s.members.forEach { m ->
-                FilterChip(s.paidByUid == m.uid, { vm.onPaidByChanged(m.uid) }, label = { Text(m.name) })
+                // "You" for your own chip, so it's clear who paid
+                FilterChip(s.paidByUid == m.uid, { vm.onPaidByChanged(m.uid) },
+                    label = { Text(if (m.uid == myUid) "You" else m.name) })
             }
         }
 
@@ -106,9 +108,15 @@ fun AddExpenseScreen(
         }
         s.remainingCents?.let { Text("Left to assign: ${it.money()}") }
         s.splitError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        s.saveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        // edit mode: someone in this expense left the household, so it can't be saved
+        s.lockedMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        s.saveError?.takeIf { it != s.lockedMessage }?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
-        Button(vm::onSaveClicked, Modifier.fillMaxWidth(), enabled = s.saveStatus != SaveStatus.SAVING) {
+        Button(
+            vm::onSaveClicked,
+            Modifier.fillMaxWidth(),
+            enabled = s.saveStatus != SaveStatus.SAVING && s.lockedMessage == null
+        ) {
             Text(
                 when {
                     s.saveStatus == SaveStatus.SAVING -> "Saving…"

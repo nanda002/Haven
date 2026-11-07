@@ -42,6 +42,12 @@ fun validateShares(amountCents: Long, shares: Map<String, Long>): String? = when
     else -> null
 }
 
+//an expense is locked once anyone in it (the payer or anyone in the split) has left the household:
+//they left settled up, so changing or deleting it would create a debt nobody can settle.
+//activeUids null or empty means the member list isn't known yet (e.g. offline), so nothing is locked
+fun involvesFormerMember(expense: Expense, activeUids: Set<String>?): Boolean =
+    !activeUids.isNullOrEmpty() && (expense.shares.keys + expense.paidByUid).any { it !in activeUids }
+
 fun validateSettlement(amountCents: Long?, balanceCents: Long): String? = when {
     amountCents == null -> "Enter an amount greater than 0"
     amountCents <= 0 -> "Enter an amount greater than 0"
