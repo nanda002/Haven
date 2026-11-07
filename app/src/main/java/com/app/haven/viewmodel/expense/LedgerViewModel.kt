@@ -41,7 +41,8 @@ sealed interface LedgerUiState {
         val rows: List<ShareDetails>,
         val balance: Balance,
         val selectedCategory: ExpenseCategory?,
-        val categoryTotalCents: Long
+        val categoryTotalCents: Long,            //total of the expenses shown (after both filters)
+        val onlyMine: Boolean = false            //"My expenses" ticked: only expenses the user paid or shares in
     ) : LedgerUiState
     data class Error(val message: String) : LedgerUiState
 }
@@ -57,6 +58,7 @@ class LedgerViewModel(
 ) : ViewModel() {
 
     private val selectedCategory = MutableStateFlow<ExpenseCategory?>(null)
+    private val onlyMine = MutableStateFlow(false)
     private val retryCount = MutableStateFlow(0)
 
     //null = not known yet; members can't fail the whole ledger, they only decide what's locked
@@ -72,9 +74,10 @@ class LedgerViewModel(
                 repository.getExpenses(householdId),
                 settlements.getSettlements(householdId),
                 selectedCategory,
+                onlyMine,
                 activeUids
-            ) { expenses, settlementList, category, active ->
-                buildState(expenses, settlementList, category, active)
+            ) { expenses, settlementList, category, mine, active ->
+                buildState(expenses, settlementList, category, mine, active)
             }.catch { e ->
                 emit(LedgerUiState.Error(e.message ?: "Couldn't load expenses"))
             }
@@ -82,6 +85,8 @@ class LedgerViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LedgerUiState.Loading)
 
     fun onCategorySelected(category: ExpenseCategory?) { selectedCategory.value = category }
+
+    fun onOnlyMineChanged(checked: Boolean) { onlyMine.value = checked }
 
     fun onRetry() { retryCount.update { it + 1 } }
 
@@ -110,15 +115,21 @@ class LedgerViewModel(
         expenses: List<Expense>,
         settlementList: List<Settlement>,
         category: ExpenseCategory?,
+        mine: Boolean,
         active: Set<String>?
     ): LedgerUiState {
         if (expenses.isEmpty()) return LedgerUiState.Empty
-        val visible = expenses.filter { category == null || it.category == category }
+        //category chip and "My expenses" both narrow the list; the balance always uses every expense
+        val visible = expenses.filter {
+            (category == null || it.category == category) &&
+                (!mine || it.paidByUid == myUid || myUid in it.shares)
+        }
         return LedgerUiState.Success(
             rows = visible.map { withShare(it, myUid).copy(locked = involvesFormerMember(it, active)) },
             balance = calculateBalances(expenses, myUid, settlementList),
             selectedCategory = category,
-            categoryTotalCents = visible.sumOf { it.amountCents }
+            categoryTotalCents = visible.sumOf { it.amountCents },
+            onlyMine = mine
         )
     }
 

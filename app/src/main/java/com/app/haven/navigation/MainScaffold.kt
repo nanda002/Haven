@@ -81,8 +81,7 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
                     myUid = user?.uid,
                     onOpenProfile = { nav.navigate("profile") },
                     onOpenHouseholdDetails = { nav.navigate("household_details") },
-                    onOpenLedger = { goToTab("ledger_tab") },
-                    onLogout = onLogout
+                    onOpenLedger = { goToTab("ledger_tab") }
                 )
             }
             navigation(startDestination = "ledger", route = "ledger_tab") {

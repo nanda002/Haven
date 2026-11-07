@@ -21,6 +21,7 @@ fun HouseholdSetupScreen(
     vm: HouseholdViewModel = viewModel()
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
+    val username by vm.username.collectAsStateWithLifecycle()
     var mode by remember { mutableStateOf(SetupMode.CHOOSE) }
     var name by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
@@ -39,6 +40,10 @@ fun HouseholdSetupScreen(
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton({ mode = SetupMode.CREATE }, Modifier.fillMaxWidth()) { Text("Create a new household") }
                 Spacer(Modifier.height(24.dp))
+                // who is signed in, so it's clear which account is joining or creating
+                username?.let {
+                    Text("Logged in as $it", style = MaterialTheme.typography.bodyMedium)
+                }
                 TextButton(onLogout) { Text("Log out") }
             }
 

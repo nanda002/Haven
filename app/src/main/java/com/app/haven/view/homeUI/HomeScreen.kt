@@ -20,7 +20,6 @@ fun HomeScreen(
     onOpenProfile: () -> Unit,
     onOpenHouseholdDetails: () -> Unit,
     onOpenLedger: () -> Unit,
-    onLogout: () -> Unit,
     vm: HomeViewModel = viewModel()
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
@@ -65,8 +64,7 @@ fun HomeScreen(
                 }
             }
         }
-        Spacer(Modifier.weight(1f))
-        OutlinedButton(onLogout) { Text("Log out") }
+        // log out lives on the Profile screen
     }
 }
 

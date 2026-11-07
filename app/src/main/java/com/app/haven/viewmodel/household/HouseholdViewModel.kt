@@ -3,6 +3,7 @@ package com.app.haven.viewmodel.household
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.haven.actions.HouseholdActions
+import com.app.haven.actions.UserActions
 import com.app.haven.actions.friendlyMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,10 +13,21 @@ import kotlinx.coroutines.launch
 data class HouseholdSetupUiState(val loading: Boolean = false, val error: String? = null)
 
 class HouseholdViewModel(
-    private val households: HouseholdActions = HouseholdActions()
+    private val households: HouseholdActions = HouseholdActions(),
+    private val users: UserActions = UserActions()
 ) : ViewModel() {
     private val _ui = MutableStateFlow(HouseholdSetupUiState())
     val ui: StateFlow<HouseholdSetupUiState> = _ui.asStateFlow()
+
+    //shown as "Logged in as …" on the setup screen; null until loaded (or if it can't be loaded)
+    private val _username = MutableStateFlow<String?>(null)
+    val username: StateFlow<String?> = _username.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _username.value = runCatching { users.loadUser()?.username }.getOrNull()?.takeIf { it.isNotBlank() }
+        }
+    }
 
     fun clearError() { _ui.value = HouseholdSetupUiState() }
 
