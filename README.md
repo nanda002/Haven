@@ -1,6 +1,8 @@
 # Haven
 
-Haven is an Android app for roommates who share a home. 
+Roommates sharing a home often struggle to manage shared expenses and household chores fairly. Bills get split inconsistently, payments are forgotten, and chores fall unevenly on one or two people. Because these issues are usually tracked informally, through group chats or scattered payment apps, there’s no single, transparent record of who owes what or who's done what. This lack of visibility leads to resentment, awkward confrontations, and strained relationships between roommates.
+
+We propose ‘Haven’, a shared household management app that centralizes logging and tracking of shared expenses, chores for all occupants in the same household, and a shared grocery list, along with widgets personalized for the user.
 
 **Stack:** Kotlin · Jetpack Compose · MVVM (ViewModel + StateFlow) · Room · Firebase Authentication, Cloud Firestore and Cloud Storage · Coil
 
