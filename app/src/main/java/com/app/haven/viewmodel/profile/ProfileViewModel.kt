@@ -1,5 +1,6 @@
 package com.app.haven.viewmodel.profile
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
@@ -18,7 +19,8 @@ data class ProfileInfo(
     val email: String,
     val joinedAtMillis: Long?,
     val householdName: String?,
-    val memberCount: Int
+    val memberCount: Int,
+    val photoUrl: String?
 )
 
 //now we describe the different states
@@ -35,6 +37,14 @@ class ProfileViewModel(
 
     private val _uiState = MutableStateFlow<ProfileUiState>(ProfileUiState.Loading)
     val ioState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+
+    //for uploading the image
+    private val _uploading = MutableStateFlow(false)
+    val uploading: StateFlow<Boolean> = _uploading.asStateFlow()
+
+    //set when an upload fails; cleared on the next attempt
+    private val _uploadError = MutableStateFlow<String?>(null)
+    val uploadError: StateFlow<String?> = _uploadError.asStateFlow()
 
     init { load() }
 
@@ -53,12 +63,30 @@ class ProfileViewModel(
                             email = user.email,
                             joinedAtMillis = user.createdAt?.time,
                             householdName = household?.name,
-                            memberCount = household?.memberIds?.size ?: 0
+                            memberCount = household?.memberIds?.size ?: 0,
+                            photoUrl = user.photoUrl
                         )
                     )
                 }
             } catch (e: Exception) {
                 ProfileUiState.Error(e.friendlyMessage())
+            }
+        }
+    }
+
+    //called with the image the user picked: upload it, then reload so the new picture shows
+    fun onPhotoPicked(uri: Uri) {
+        if (_uploading.value) return
+        viewModelScope.launch {
+            _uploading.value = true
+            _uploadError.value = null
+            try {
+                users.uploadProfilePhoto(uri)
+                load()
+            } catch (e: Exception) {
+                _uploadError.value = e.message ?: "Couldn't upload the picture"
+            } finally {
+                _uploading.value = false
             }
         }
     }

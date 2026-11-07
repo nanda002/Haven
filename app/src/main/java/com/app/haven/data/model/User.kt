@@ -9,5 +9,6 @@ data class User(
     val username: String = "",
     val email: String = "",
     val householdId: String? = null,
+    val photoUrl: String? = null,
     @ServerTimestamp val createdAt: Date? = null
 )

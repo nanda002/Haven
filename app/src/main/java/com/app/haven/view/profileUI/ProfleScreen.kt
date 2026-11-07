@@ -1,5 +1,8 @@
 package com.app.haven.view.profileUI
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -19,6 +23,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.viewmodel.profile.ProfileInfo
 import com.app.haven.viewmodel.profile.ProfileUiState
 import com.app.haven.viewmodel.profile.ProfileViewModel
+import coil3.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -31,6 +36,13 @@ fun ProfileScreen(
     vm: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory)
 ) {
     val state by vm.ioState.collectAsStateWithLifecycle()
+    val uploading by vm.uploading.collectAsStateWithLifecycle()
+    val uploadError by vm.uploadError.collectAsStateWithLifecycle()
+
+    //Android's photo picker: no storage permission needed; gives back the chosen image (or null if cancelled)
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let(vm::onPhotoPicked)
+    }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -48,31 +60,60 @@ fun ProfileScreen(
                     Text(s.message, color = MaterialTheme.colorScheme.error)
                     Button(vm::load) { Text("Retry") }
                 }
-                is ProfileUiState.Success -> ProfileContent(s.profile, onLogout)
+                is ProfileUiState.Success -> ProfileContent(
+                    s.profile, onLogout, uploading, uploadError,
+                    onChangePhoto = {
+                        pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ProfileContent(p: ProfileInfo, onLogout: () -> Unit) {
+private fun ProfileContent(
+    p: ProfileInfo,
+    onLogout: () -> Unit,
+    uploading: Boolean,
+    uploadError: String?,
+    onChangePhoto: () -> Unit
+) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        //picture placeholder (initials) + name and email; the photo upload comes later
+        //profile picture (or initials if there isn't one) + name and email
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
                 Modifier.size(88.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    p.username.initials(),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                if (p.photoUrl != null) {
+                    //downloads and shows the picture from its link, cropped to fill the circle
+                    AsyncImage(
+                        model = p.photoUrl,
+                        contentDescription = "Profile picture",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    //default:show the user's initials
+                    Text(
+                        p.username.initials(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                if (uploading) CircularProgressIndicator()
             }
-            Spacer(Modifier.height(12.dp))
+            TextButton(onChangePhoto, enabled = !uploading) {
+                Text(if (uploading) "Uploading…" else "Change photo")
+            }
+            uploadError?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+            Spacer(Modifier.height(4.dp))
             Text(p.username, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             Text(p.email, style = MaterialTheme.typography.bodyMedium)
             p.joinedAtMillis?.let {
