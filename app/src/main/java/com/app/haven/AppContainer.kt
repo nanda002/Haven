@@ -14,6 +14,7 @@ import com.app.haven.actions.UserActions
 import com.app.haven.data.local.HavenDatabase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 
 // Manual dependency injection: the only place that knows about Room and Firebase.
 // It builds the data layer once; ViewModel factories take what they need from here,
@@ -23,8 +24,10 @@ class AppContainer(context: Context) {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    val userActions = UserActions(auth, firestore)
+    private val storage = FirebaseStorage.getInstance()
+    val userActions = UserActions(auth, firestore, storage)
     val householdActions = HouseholdActions(auth, firestore)
+
     val expenseRepository: ExpenseActions = ExpenseRepository(localDb.expenseDao(), firestore)
     val settlementRepository: SettleExpenseActions = SettleExpenseRepository(localDb.settlementDao(), firestore)
     val expenseDraftRepository: ExpenseDraftActions = ExpenseDraftRepository(localDb.expenseDraftDao())

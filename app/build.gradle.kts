@@ -59,6 +59,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:35.0.2"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-storage")      // profile pictures; version comes from the BOM above
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
     implementation("androidx.navigation:navigation-compose:2.9.0")   // use the newest version Android Studio suggests
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
@@ -67,4 +68,7 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)       // coroutines + Flow support
     ksp(libs.androidx.room.compiler)             // generates the DAO/database code at build time
+    // Coil (loads images from URLs, e.g. profile pictures)
+    implementation(libs.coil.compose)            // AsyncImage for Compose
+    implementation(libs.coil.network.okhttp)     // Coil 3 needs this to download images over the network
 }

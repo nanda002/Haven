@@ -1,5 +1,6 @@
 package com.app.haven.actions
 
+import android.net.Uri
 import com.app.haven.data.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -7,13 +8,15 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
 import com.google.firebase.firestore.Source
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.seconds
 
 // User login and signup logic (backnd)
 class UserActions(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
-    private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val storage: FirebaseStorage = FirebaseStorage.getInstance()
 ) {
     val isSignedIn: Boolean get() = auth.currentUser != null
 
@@ -47,5 +50,15 @@ class UserActions(
                 throw IllegalStateException("You're offline and this phone has no saved data yet. Connect to the internet and try again.")
             }
         return snapshot.toObject(User::class.java)
+    }
+
+    suspend fun uploadProfilePhoto(uri: Uri): String {
+        val uid = auth.currentUser?.uid ?: throw IllegalStateException("Not signed in")
+        //one file per user, so a new picture replaces the old one
+        val ref = storage.reference.child("profile_photos/$uid/avatar.jpg")
+        ref.putFile(uri).await()
+        val url = ref.downloadUrl.await().toString()
+        db.collection("users").document(uid).update("photoUrl", url).await()
+        return url
     }
 }
