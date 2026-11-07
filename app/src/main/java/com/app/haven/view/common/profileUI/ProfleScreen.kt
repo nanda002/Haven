@@ -1,4 +1,4 @@
-package com.app.haven.view.profileUI
+package com.app.haven.view.common.profileUI
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -20,9 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.app.haven.viewmodel.profile.ProfileInfo
-import com.app.haven.viewmodel.profile.ProfileUiState
-import com.app.haven.viewmodel.profile.ProfileViewModel
+import com.app.haven.viewmodel.common.profile.ProfileInfo
+import com.app.haven.viewmodel.common.profile.ProfileUiState
+import com.app.haven.viewmodel.common.profile.ProfileViewModel
 import coil3.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.Date
