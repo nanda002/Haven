@@ -10,6 +10,7 @@ import com.app.haven.actions.ExpenseDraftActions
 import com.app.haven.domain.expense.Expense
 import com.app.haven.domain.expense.ExpenseCategory
 import com.app.haven.domain.expense.ExpenseDraft
+import com.app.haven.domain.expense.involvesFormerMember
 import com.app.haven.domain.expense.parseDollarsToCents
 import com.app.haven.domain.expense.remainingCents
 import com.app.haven.domain.expense.splitExpenseLogic
@@ -50,7 +51,8 @@ data class AddExpenseUiState(
     val saveStatus: SaveStatus = SaveStatus.EDITING,
     val isEditing: Boolean = false,          // true when changing an existing expense
     val loadingExpense: Boolean = false,     // edit mode: waiting for the expense to load
-    val restoredDraft: Boolean = false       // add mode: the form was filled from a saved draft
+    val restoredDraft: Boolean = false,      // add mode: the form was filled from a saved draft
+    val lockedMessage: String? = null        // edit mode: someone in the expense left, so it can't be saved
 )
 
 //editingExpenseId == null -> adding a new expense, otherwise editing that one
@@ -78,6 +80,9 @@ class AddExpenseViewModel(
     //kept so editing doesn't rename the payer if they're no longer in the member list
     private var originalPaidByName: String? = null
 
+    //edit mode: the expense as saved, to check whether anyone in it has left the household
+    private var originalExpense: Expense? = null
+
     //true once the form was filled from a saved draft, so the member list doesn't overwrite who's ticked
     private var restoredFromDraft = false
     //true after a successful save, so a last pending auto-save can't bring the draft back
@@ -99,6 +104,8 @@ class AddExpenseViewModel(
                         )
                     )
                 }
+                //someone may have just left the household
+                refreshLock()
             }
         }
         editingExpenseId?.let { loadExpense(it) }
@@ -147,6 +154,7 @@ class AddExpenseViewModel(
                 return@launch
             }
             originalPaidByName = expense.paidByName
+            originalExpense = expense
             // saved shares that match an even split open in Even mode, anything else in Custom mode
             val isEven = expense.shares == splitExpenseLogic(expense.amountCents, expense.shares.keys.toList())
             _uiState.update { s ->
@@ -163,7 +171,17 @@ class AddExpenseViewModel(
                     )
                 )
             }
+            refreshLock()
         }
+    }
+
+    //edit mode: lock the form if anyone in the saved expense is no longer an active member
+    //(the Ledger already hides these, this covers someone leaving while the form is open)
+    private fun refreshLock() {
+        val expense = originalExpense ?: return
+        val activeUids = _uiState.value.members.map { it.uid }.toSet()
+        val locked = involvesFormerMember(expense, activeUids)
+        _uiState.update { it.copy(lockedMessage = if (locked) LedgerViewModel.LOCKED_MESSAGE else null) }
     }
 
     // ---- events from the screen ----
@@ -205,6 +223,10 @@ class AddExpenseViewModel(
     fun onSaveClicked() {
         val s = _uiState.value
         if (s.saveStatus == SaveStatus.SAVING || s.loadingExpense) return
+        if (s.lockedMessage != null) {
+            _uiState.update { it.copy(saveError = it.lockedMessage) }
+            return
+        }
 
         val description = s.description.trim()
         val amount = parseDollarsToCents(s.amountText)?.takeIf { it > 0 }

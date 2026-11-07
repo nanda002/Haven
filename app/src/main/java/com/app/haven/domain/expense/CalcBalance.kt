@@ -5,7 +5,9 @@ data class ShareDetails(
     val expense: Expense,
     val userShare: Long,
     val userDues: Long,
-    val userOwed: Long
+    val userOwed: Long,
+    //true when someone in this expense has left the household, so it can't be edited or deleted
+    val locked: Boolean = false
 )
 
 fun withShare(expense: Expense, myUid: String): ShareDetails {
