@@ -1,4 +1,4 @@
-package com.app.haven.viewmodel.profile
+package com.app.haven.viewmodel.common.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
