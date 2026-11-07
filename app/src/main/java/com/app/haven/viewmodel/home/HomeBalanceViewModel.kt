@@ -36,7 +36,9 @@ class HomeBalanceViewModel(
             settlements.getSettlements(householdId)
         ) { e, s -> HomeBalanceState.Success(calculateBalances(e, myUid, s)) }
             .catch { emit(HomeBalanceState.Error(it.message ?: "Couldn't load balances")) }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeBalanceState.Loading)
+            // Eagerly: keep listening the whole time this ViewModel exists (the Home screen's lives
+            // for the whole session), so the card is already up to date when you come back to Home
+            .stateIn(viewModelScope, SharingStarted.Eagerly, HomeBalanceState.Loading)
 
     companion object {
         fun factory(householdId: String, myUid: String) = viewModelFactory {
