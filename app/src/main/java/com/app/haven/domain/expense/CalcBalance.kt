@@ -10,6 +10,7 @@ data class ShareDetails(
     val locked: Boolean = false
 )
 
+//everything required to show for the expense on the ledger screen (with respect to the user)
 fun withShare(expense: Expense, myUid: String): ShareDetails {
     val userPaid = (expense.paidByUid == myUid)
     return ShareDetails(
@@ -25,7 +26,8 @@ fun withShare(expense: Expense, myUid: String): ShareDetails {
 
 //A recorded payment between two people
 data class Settlement(val fromUid: String, val toUid: String, val amountCents: Long, val createdByUid: String = "",      // who pressed Settle
-                      val createdAtMillis: Long? = null, val id: String = "")
+                      val createdAtMillis: Long? = null, val id: String = "",
+                      val settledInFull: Boolean = false)   // this payment cleared the balance between the two
 
 // Positive netCents: they owe me. Negative: I owe them.
 data class PersonBalance(val uid: String, val netCents: Long)
@@ -62,6 +64,7 @@ data class Balance(val iOweCents: Long, val owedToMeCents: Long) {
     val netCents: Long get() = owedToMeCents - iOweCents
 }
 
+//for displaying on the balance card on the ledger screen + dashboard screen
 fun calculateBalances(
     expenses: List<Expense>,
     myUid: String,

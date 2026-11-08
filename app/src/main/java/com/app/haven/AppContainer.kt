@@ -20,11 +20,15 @@ import com.google.firebase.storage.FirebaseStorage
 // It builds the data layer once; ViewModel factories take what they need from here,
 // so screens only ever ask for their ViewModel.
 class AppContainer(context: Context) {
+
+    //creating instances of each storage type
     private val localDb = HavenDatabase.get(context)
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
     private val storage = FirebaseStorage.getInstance()
+
+    //creating objects for each data model
     val userActions = UserActions(auth, firestore, storage)
     val householdActions = HouseholdActions(auth, firestore)
 

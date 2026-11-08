@@ -48,6 +48,7 @@ fun LedgerScreen(
     val scope = rememberCoroutineScope()
     var pendingDelete by remember { mutableStateOf<Expense?>(null) }   // expense waiting for confirmation
 
+    //only occurs once when a composable appears, in this case the deleteError
     LaunchedEffect(deleteError) {
         deleteError?.let { snackbar.showSnackbar(it); vm.onDeleteErrorShown() }
     }
@@ -89,6 +90,7 @@ fun LedgerScreen(
                     Text(s.message, color = MaterialTheme.colorScheme.error)
                     Button(vm::onRetry) { Text("Retry") }
                 }
+                //using lazy column for displaying list
                 is LedgerUiState.Success -> LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(top = 16.dp)   // a bit of space above the balance card

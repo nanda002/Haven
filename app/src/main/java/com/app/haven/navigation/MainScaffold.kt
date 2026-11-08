@@ -38,6 +38,7 @@ private val tabs = listOf(
 
 @Composable
 fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
+    //object that remembers the back stack
     val nav = rememberNavController()
     val currentDest = nav.currentBackStackEntryAsState().value?.destination
 
@@ -62,7 +63,9 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
             NavigationBar {
                 tabs.forEach { tab ->
                     NavigationBarItem(
-                        // hierarchy keeps the Ledger tab selected on its inner screens (e.g. Add expense)
+                        //hierarchy keeps the Ledger tab selected on its inner screens (e.g. Add expense)
+                        //basically checks if the current selected tab has any other screens, and this will remain highlighted
+                        //if the user goes to those screens
                         selected = currentDest?.hierarchy?.any { it.route == tab.route } == true ||
                                 (tab.route == "home" && currentDest?.route in setOf("profile", "household_details")),
                         onClick = { goToTab(tab.route) },
@@ -79,6 +82,7 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
                 HomeScreen(
                     householdId = user?.householdId,
                     myUid = user?.uid,
+                    //the different routes from the home screen
                     onOpenProfile = { nav.navigate("profile") },
                     onOpenHouseholdDetails = { nav.navigate("household_details") },
                     onOpenLedger = { goToTab("ledger_tab") }

@@ -14,6 +14,7 @@ data class SettleExpenses (
     val toUid: String = "",
     val amount: Long = 0L,
     val whoSettled: String = "",
+    val settledInFull: Boolean = false,          // old documents don't have it -> false
     @ServerTimestamp val createdAt: Date? = null
 )
 
@@ -24,7 +25,8 @@ fun SettleExpenses.toDomain() = Settlement(
     toUid = toUid,
     amountCents = amount,
     createdByUid = whoSettled,
-    createdAtMillis = createdAt?.time
+    createdAtMillis = createdAt?.time,
+    settledInFull = settledInFull
 )
 
 fun Settlement.toData() = SettleExpenses(
@@ -32,5 +34,6 @@ fun Settlement.toData() = SettleExpenses(
     fromUid = fromUid,
     toUid = toUid,
     amount = amountCents,
-    whoSettled = createdByUid
+    whoSettled = createdByUid,
+    settledInFull = settledInFull
 )
