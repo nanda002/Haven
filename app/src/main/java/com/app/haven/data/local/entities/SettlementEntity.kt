@@ -16,7 +16,8 @@ data class SettlementEntity (
     val toUid: String,            //who received it
     val amountCents: Long,
     val createdByUid: String,     //who pressed Settle
-    val createdAtMillis: Long?
+    val createdAtMillis: Long?,
+    val settledInFull: Boolean = false   //this payment cleared the balance between the two
 )
 
 //room entity to domain model conversions and vice versa
@@ -26,7 +27,8 @@ fun SettlementEntity.toDomain() = Settlement(
     toUid = toUid,
     amountCents = amountCents,
     createdByUid = createdByUid,
-    createdAtMillis = createdAtMillis
+    createdAtMillis = createdAtMillis,
+    settledInFull = settledInFull
 )
 
 fun Settlement.toEntity(householdId: String) = SettlementEntity(
@@ -36,5 +38,6 @@ fun Settlement.toEntity(householdId: String) = SettlementEntity(
     toUid = toUid,
     amountCents = amountCents,
     createdByUid = createdByUid,
-    createdAtMillis = createdAtMillis
+    createdAtMillis = createdAtMillis,
+    settledInFull = settledInFull
 )

@@ -32,7 +32,6 @@ fun AddExpenseScreen(
 ) {
     val s by vm.uiState.collectAsStateWithLifecycle()
 
-    // go back once saved
     LaunchedEffect(s.saveStatus) {
         if (s.saveStatus == SaveStatus.SAVED) { vm.onSavedHandled(); onDone() }
     }

@@ -186,6 +186,7 @@ class AddExpenseViewModel(
 
     // ---- events from the screen ----
 
+    //the below functions work for both add and update
     fun onDescriptionChanged(text: String) =
         _uiState.update { it.copy(description = text, descriptionError = null, saveError = null) }
 
@@ -266,6 +267,7 @@ class AddExpenseViewModel(
             shares = shares
         )
 
+        //save the results to the database
         viewModelScope.launch {
             _uiState.update { it.copy(saveStatus = SaveStatus.SAVING, saveError = null) }
             val result = if (editingExpenseId != null) repository.updateExpense(householdId, expense)
@@ -289,9 +291,10 @@ class AddExpenseViewModel(
 
     fun onSavedHandled() = _uiState.update { it.copy(saveStatus = SaveStatus.EDITING) }
 
-    //start fresh: empty form (everyone ticked again) and no saved draft
+    //clearing the form, start fresh: empty form (everyone ticked again) and no saved draft
     fun onClearClicked() {
         _uiState.update { s ->
+            //goes back to the default
             recompute(
                 AddExpenseUiState(
                     paidByUid = myUid,
@@ -300,6 +303,7 @@ class AddExpenseViewModel(
                 )
             )
         }
+        //deleting the saved draft
         viewModelScope.launch { drafts?.deleteDraft(householdId) }
     }
 
@@ -327,6 +331,7 @@ class AddExpenseViewModel(
         }.toMap()
 
     // Refreshes the live preview (even shares, or remaining amount in Custom mode)
+    //recompute is called when the members involved in the share, even/custom split changes
     private fun recompute(s: AddExpenseUiState): AddExpenseUiState {
         val amount = parseDollarsToCents(s.amountText)?.takeIf { it > 0 }
         val even = if (amount != null && s.includedUids.isNotEmpty())

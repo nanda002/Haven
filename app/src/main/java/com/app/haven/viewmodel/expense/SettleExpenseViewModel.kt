@@ -10,6 +10,7 @@ import com.app.haven.actions.SettleExpenseActions
 import com.app.haven.domain.expense.Settlement
 import com.app.haven.domain.expense.balancesWithEach
 import com.app.haven.domain.expense.parseDollarsToCents
+import com.app.haven.domain.expense.paymentHistory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,7 +18,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -27,10 +30,20 @@ import kotlin.math.abs
 //netCents positive: they owe the user, negative: the user owes them
 data class MemberRow(val uid: String, val name: String, val netCents: Long)
 
+//one line in the payment history
+data class HistoryRow(
+    val id: String,
+    val otherName: String,
+    val iPaid: Boolean,
+    val amountCents: Long,
+    val dateMillis: Long?,
+    val settledInFull: Boolean
+)
+
 sealed interface SettleUiState {
     data object Loading : SettleUiState
-    data object AllSettled : SettleUiState
-    data class Success(val people: List<MemberRow>) : SettleUiState
+    //people empty = all settled up; the history is available either way
+    data class Success(val people: List<MemberRow>, val history: List<HistoryRow>) : SettleUiState
     data class Error(val message: String) : SettleUiState
 }
 
@@ -47,29 +60,44 @@ class SettleExpenseViewModel(
     private val settlements: SettleExpenseActions,
     private val householdId: String,
     private val myUid: String,
-    members: Flow<List<MemberOption>>
+    members: Flow<List<MemberOption>>,
+    pastMembers: Flow<List<MemberOption>> = flowOf(emptyList())   //names of people who left, for the history
 ) : ViewModel() {
 
     //balances come from expenses + settlements, names from members; all live
     val uiState: StateFlow<SettleUiState> = combine(
+        //repo calls
         expenses.getExpenses(householdId),
         settlements.getSettlements(householdId),
-        members
-    ) { expenseList, settlementList, memberList ->
-        //balance list returns the uid : balance
-        val balanceList = balancesWithEach(expenseList, myUid, settlementList)
-        //nothing to show
-        if (balanceList.isEmpty()) {
-            SettleUiState.AllSettled
-        } else {
-            SettleUiState.Success(balanceList.map { p ->
-                MemberRow(
-                    p.uid,
-                    memberList.firstOrNull { it.uid == p.uid }?.name ?: "Your roommate",
-                    p.netCents
-                )
-            })
+        members,
+        pastMembers.onStart { emit(emptyList()) }.catch { emit(emptyList()) }   //never blocks the screen
+    ) { expenseList, settlementList, memberList, pastList ->
+        //current names win over past ones
+        val names = (pastList + memberList).associate { it.uid to it.name }
+        //fallback for the name
+        fun nameOf(uid: String) = names[uid] ?: "Your roommate"
+
+        //balance list returns the uid : balance, the member row is filled here
+        //how much each member owes the other
+        val people = balancesWithEach(expenseList, myUid, settlementList)
+            .map { p -> MemberRow(p.uid, nameOf(p.uid), p.netCents) }
+
+        //then we get the past settlements between the members
+        //payments the user made or received, newest first
+        val history = paymentHistory(settlementList, myUid).map { s ->
+            val iPaid = s.fromUid == myUid
+            HistoryRow(
+                id = s.id,
+                otherName = nameOf(if (iPaid) s.toUid else s.fromUid),
+                iPaid = iPaid,
+                amountCents = s.amountCents,
+                dateMillis = s.createdAtMillis,
+                settledInFull = s.settledInFull
+            )
         }
+        //this is the initial state which shows the current status of what is to be settled
+        //and also the past history
+        SettleUiState.Success(people, history) as SettleUiState
     }.catch { e ->
         emit(SettleUiState.Error(e.message ?: "Couldn't load balances"))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettleUiState.Loading)
@@ -80,16 +108,21 @@ class SettleExpenseViewModel(
 
     // ---- events from the screen ----
 
+    //when the settle button is clicked by the user
     fun onSettleClicked(member: MemberRow) {
         _dialog.value = SettleDialogState(member, centsToText(abs(member.netCents)))
     }
 
+    //when the amount in the text box is changed to something else
     fun onSettleAmountChanged(text: String) =
         _dialog.update { it?.copy(amountText = text, error = null) }
 
+    //leaving the settle pop up
     fun onSettleDismissed() { _dialog.value = null }
 
+
     fun onSettleConfirmed() {
+        //checking if the amount text field has an entered number
         val d = _dialog.value ?: return
         if (d.saving) return
 
@@ -100,6 +133,7 @@ class SettleExpenseViewModel(
             return
         }
 
+        //taking the values to be stored in the database
         val amount = parseDollarsToCents(d.amountText)
         val error = validateSettlement(amount, abs(current.netCents))
         if (error != null || amount == null) {
@@ -113,7 +147,8 @@ class SettleExpenseViewModel(
             fromUid = if (theyOweMe) current.uid else myUid,
             toUid = if (theyOweMe) myUid else current.uid,
             amountCents = amount,
-            createdByUid = myUid
+            createdByUid = myUid,
+            settledInFull = amount == abs(current.netCents)    //paid everything that was owed
         )
 
         //the call to post the values in the database
@@ -147,6 +182,8 @@ class SettleExpenseViewModel(
                 SettleExpenseViewModel(
                     container.expenseRepository, container.settlementRepository, householdId, myUid,
                     container.householdActions.observeMembers(householdId)
+                        .map { list -> list.map { MemberOption(it.uid, it.displayName) } },
+                    container.householdActions.observePastMembers(householdId)
                         .map { list -> list.map { MemberOption(it.uid, it.displayName) } }
                 )
             }

@@ -17,7 +17,7 @@ import com.app.haven.data.local.entities.SettlementEntity
 //plus unsaved add-expense drafts, which exist only here
 @Database(
     entities = [ExpenseEntity::class, SettlementEntity::class, ExpenseDraftEntity::class],
-    version = 2,
+    version = 3,   //3: settlements got the settledInFull column (destructive fallback rebuilds the tables)
     exportSchema = false
 )
 //registering the type converter

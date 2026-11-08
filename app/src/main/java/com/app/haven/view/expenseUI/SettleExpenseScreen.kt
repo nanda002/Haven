@@ -26,8 +26,12 @@ fun SettleExpenseScreen(
     onClose: () -> Unit,
     vm: SettleExpenseViewModel = viewModel(factory = SettleExpenseViewModel.factory(householdId, myUid))
 ) {
+    //contains the member rows & history
     val state by vm.uiState.collectAsStateWithLifecycle()
+    //contains the information for the dialog
     val dialog by vm.dialog.collectAsStateWithLifecycle()
+    // payment history is shown only after "Show history" is tapped (closed each time the screen opens)
+    var showHistory by remember { mutableStateOf(false) }
 
     // settle popup, shown while the user is settling with someone
     dialog?.let { d ->
@@ -59,6 +63,8 @@ fun SettleExpenseScreen(
         )
     }
 
+    //for the settlements screen
+
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClose) { Icon(Icons.Default.Close, contentDescription = "Close") }
@@ -68,10 +74,12 @@ fun SettleExpenseScreen(
         Box(Modifier.fillMaxSize()) {
             when (val s = state) {
                 SettleUiState.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                SettleUiState.AllSettled -> Text("You're all settled up", Modifier.align(Alignment.Center))
                 is SettleUiState.Error -> Text(s.message, Modifier.align(Alignment.Center),
                     color = MaterialTheme.colorScheme.error)
                 is SettleUiState.Success -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (s.people.isEmpty()) {
+                        item { Text("You're all settled up", Modifier.padding(vertical = 8.dp)) }
+                    }
                     items(s.people, key = { it.uid }) { m ->
                         ListItem(
                             headlineContent = { Text(m.name) },
@@ -81,6 +89,30 @@ fun SettleExpenseScreen(
                             },
                             trailingContent = { Button({ vm.onSettleClicked(m) }) { Text("Settle") } }
                         )
+                    }
+
+                    // the button shows/hides the payment history below
+                    item {
+                        OutlinedButton({ showHistory = !showHistory }, Modifier.fillMaxWidth().padding(top = 16.dp)) {
+                            Text(if (showHistory) "Hide history" else "Show history")
+                        }
+                    }
+                    if (showHistory) {
+                        if (s.history.isEmpty()) {
+                            item { Text("No payments yet", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        }
+                        items(s.history, key = { "h_" + it.id }) { h ->
+                            ListItem(
+                                headlineContent = {
+                                    Text(if (h.iPaid) "You paid ${h.otherName}" else "${h.otherName} paid you")
+                                },
+                                supportingContent = {
+                                    val date = h.dateMillis?.shortDate() ?: "Pending"
+                                    Text(if (h.settledInFull) "$date · Fully settled up" else date)
+                                },
+                                trailingContent = { Text(h.amountCents.money()) }
+                            )
+                        }
                     }
                 }
             }

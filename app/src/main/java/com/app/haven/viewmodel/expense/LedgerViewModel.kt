@@ -84,8 +84,10 @@ class LedgerViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LedgerUiState.Loading)
 
+    //for getting the current selected category value
     fun onCategorySelected(category: ExpenseCategory?) { selectedCategory.value = category }
 
+     //when the filter for the user involved expenses is selected
     fun onOnlyMineChanged(checked: Boolean) { onlyMine.value = checked }
 
     fun onRetry() { retryCount.update { it + 1 } }
@@ -96,12 +98,13 @@ class LedgerViewModel(
 
     //the live expenses listener removes the row and updates the balance on its own
     fun onDelete(expenseId: String) {
-        //safety net: the screen hides delete on locked rows, but don't trust that alone
         val row = (uiState.value as? LedgerUiState.Success)?.rows?.firstOrNull { it.expense.id == expenseId }
+        //if the expense is locked because a previous member left
         if (row?.locked == true) {
             _deleteError.value = LOCKED_MESSAGE
             return
         }
+        //update the delete to the database
         viewModelScope.launch {
             repository.deleteExpense(householdId, expenseId)
                 .onFailure { e -> _deleteError.value = e.message ?: "Couldn't delete the expense" }
