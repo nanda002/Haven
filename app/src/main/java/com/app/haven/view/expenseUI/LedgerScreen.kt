@@ -22,10 +22,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.domain.expense.Expense
 import com.app.haven.domain.expense.ExpenseCategory
-import com.app.haven.ui.theme.LedgerBackground
-import com.app.haven.ui.theme.LedgerCard
-import com.app.haven.ui.theme.LedgerMuted
-import com.app.haven.ui.theme.LedgerText
 import com.app.haven.viewmodel.expense.LedgerUiState
 import com.app.haven.viewmodel.expense.LedgerViewModel
 import kotlinx.coroutines.launch
@@ -69,12 +65,12 @@ fun LedgerScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),   // outer MainScaffold already handles insets
-        containerColor = LedgerBackground,       // pastel blue behind the white cards
-        contentColor = LedgerText,
+        containerColor = MaterialTheme.colorScheme.background,       // pastel blue behind the white cards
+        contentColor = MaterialTheme.colorScheme.onSurface,
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             // white with a black + so it pops off the blue background
-            FloatingActionButton(onAddExpense, containerColor = LedgerCard, contentColor = LedgerText) {
+            FloatingActionButton(onAddExpense, containerColor = MaterialTheme.colorScheme.surfaceContainerLowest, contentColor = MaterialTheme.colorScheme.onSurface) {
                 Icon(Icons.Default.Add, contentDescription = "Add expense")
             }
         }
@@ -101,7 +97,7 @@ fun LedgerScreen(
                             onClick = onOpenBalances,
                             // extra space between the balance card and the expenses below
                             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                            colors = CardDefaults.elevatedCardColors(containerColor = LedgerCard, contentColor = LedgerText)
+                            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest, contentColor = MaterialTheme.colorScheme.onSurface)
                         ) {
                             Column(Modifier.padding(16.dp)) {
                                 Row(Modifier.fillMaxWidth()) {
@@ -151,7 +147,7 @@ fun LedgerScreen(
                                 Checkbox(
                                     checked = s.onlyMine,
                                     onCheckedChange = null,
-                                    colors = CheckboxDefaults.colors(checkedColor = LedgerText, uncheckedColor = LedgerText)
+                                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.onSurface, uncheckedColor = MaterialTheme.colorScheme.onSurface)
                                 )
                                 Text("My expenses", style = MaterialTheme.typography.bodySmall)
                             }
@@ -166,15 +162,15 @@ fun LedgerScreen(
                                 else onEditExpense(row.expense.id)
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.elevatedCardColors(containerColor = LedgerCard, contentColor = LedgerText)
+                            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest, contentColor = MaterialTheme.colorScheme.onSurface)
                         ) {
                             ListItem(
                                 // transparent so the card's white and shadow show through; dark text
                                 colors = ListItemDefaults.colors(
                                     containerColor = Color.Transparent,
-                                    headlineColor = LedgerText,
-                                    supportingColor = LedgerText,
-                                    trailingIconColor = LedgerText
+                                    headlineColor = MaterialTheme.colorScheme.onSurface,
+                                    supportingColor = MaterialTheme.colorScheme.onSurface,
+                                    trailingIconColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 headlineContent = { Text(row.expense.description.capitalized(), fontWeight = FontWeight.SemiBold) },
                                 supportingContent = {
@@ -198,12 +194,12 @@ fun LedgerScreen(
                                         if (row.locked) {
                                             //locked: no delete, just a lock (same size as the button so rows line up)
                                             Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                                                Icon(Icons.Default.Lock, contentDescription = "Locked expense", tint = LedgerMuted)
+                                                Icon(Icons.Default.Lock, contentDescription = "Locked expense", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                         } else {
                                             //for deleting an expense
                                             IconButton({ pendingDelete = row.expense }) {
-                                                Icon(Icons.Default.Delete, contentDescription = "Delete expense", tint = LedgerMuted)
+                                                Icon(Icons.Default.Delete, contentDescription = "Delete expense", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                         }
                                     }
@@ -227,14 +223,14 @@ private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) 
         colors = FilterChipDefaults.filterChipColors(
             containerColor = Color.Transparent,
             selectedContainerColor = Color.Transparent,
-            labelColor = LedgerText,
-            selectedLabelColor = LedgerText
+            labelColor = MaterialTheme.colorScheme.onSurface,
+            selectedLabelColor = MaterialTheme.colorScheme.onSurface
         ),
         border = FilterChipDefaults.filterChipBorder(
             enabled = true,
             selected = selected,
-            borderColor = LedgerText.copy(alpha = 0.4f),
-            selectedBorderColor = LedgerText,
+            borderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            selectedBorderColor = MaterialTheme.colorScheme.onSurface,
             borderWidth = 1.dp,
             selectedBorderWidth = 2.5.dp
         )
