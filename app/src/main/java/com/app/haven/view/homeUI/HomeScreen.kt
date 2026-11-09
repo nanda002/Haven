@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.viewmodel.home.HomeBalanceViewModel
 import com.app.haven.viewmodel.home.HomeViewModel
+import com.app.haven.viewmodel.home.HomeChoresViewModel
 
 @Composable
 fun HomeScreen(
@@ -20,6 +21,7 @@ fun HomeScreen(
     onOpenProfile: () -> Unit,
     onOpenHouseholdDetails: () -> Unit,
     onOpenLedger: () -> Unit,
+    onOpenChores: () -> Unit,
     vm: HomeViewModel = viewModel()
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
@@ -61,6 +63,7 @@ fun HomeScreen(
                 }
                 if (householdId != null && myUid != null) {
                     BalanceSection(householdId, myUid, onOpenLedger)
+                    ChoresSection(householdId, myUid, onOpenChores)
                 }
             }
         }
@@ -78,4 +81,15 @@ private fun BalanceSection(
 ) {
     val state by balanceVm.state.collectAsStateWithLifecycle()
     HomeBalanceCard(state, onClick = onOpenLedger)
+}
+
+@Composable
+private fun ChoresSection(
+    householdId: String,
+    myUid: String,
+    onOpenChores: () -> Unit,
+    choresVm: HomeChoresViewModel = viewModel(factory = HomeChoresViewModel.factory(householdId, myUid))
+) {
+    val due by choresVm.dueChores.collectAsStateWithLifecycle()
+    HomeChoresCard(due, onClick = onOpenChores)
 }
