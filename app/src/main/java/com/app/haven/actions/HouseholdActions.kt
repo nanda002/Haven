@@ -46,6 +46,7 @@ class HouseholdActions(
         batch.set(
             householdRef.collection("members").document(uid), mapOf(
                 "displayName" to user.username,
+                "photoUrl" to user.photoUrl,
                 "active" to true,
                 "joinedAt" to FieldValue.serverTimestamp()
             )
@@ -83,6 +84,7 @@ class HouseholdActions(
             tx.set(
                 householdRef.collection("members").document(uid), mapOf(
                     "displayName" to (userSnap.getString("username") ?: ""),
+                    "photoUrl" to userSnap.getString("photoUrl"),
                     "active" to true,
                     "joinedAt" to FieldValue.serverTimestamp()
                 )

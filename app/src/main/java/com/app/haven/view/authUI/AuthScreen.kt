@@ -1,6 +1,7 @@
 package com.app.haven.view.authUI
 
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -15,10 +16,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.viewmodel.auth.AuthViewModel
 
 @Composable
-fun AuthScreen(onAuthenticated: () -> Unit, vm: AuthViewModel = viewModel()) {
+fun AuthScreen(
+    onAuthenticated: () -> Unit,
+    startInSignUp: Boolean = false,
+    onBack: () -> Unit = {},
+    vm: AuthViewModel = viewModel()
+) {
+    BackHandler(onBack = onBack)
     Log.d("AuthScreen", "Composing AuthScreen")
     val ui by vm.ui.collectAsStateWithLifecycle()
-    var isSignUp by remember { mutableStateOf(false) }
+    var isSignUp by remember { mutableStateOf(startInSignUp) }
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -32,7 +39,10 @@ fun AuthScreen(onAuthenticated: () -> Unit, vm: AuthViewModel = viewModel()) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Haven", style = MaterialTheme.typography.displayMedium)
+            Text(
+                if (isSignUp) "Create your account" else "Log in",
+                style = MaterialTheme.typography.headlineMedium
+            )
             Spacer(Modifier.height(24.dp))
 
             if (isSignUp) {
@@ -70,6 +80,7 @@ fun AuthScreen(onAuthenticated: () -> Unit, vm: AuthViewModel = viewModel()) {
             TextButton(onClick = { isSignUp = !isSignUp; vm.clearError() }) {
                 Text(if (isSignUp) "Already have an account? Log in" else "Don't have an account? Sign up")
             }
+            TextButton(onClick = { vm.clearError(); onBack() }) { Text("Back") }
         }
     }
 }

@@ -31,6 +31,8 @@ import com.app.haven.viewmodel.home.HomeBalanceState
 import com.app.haven.viewmodel.home.HomeBalanceViewModel
 import com.app.haven.viewmodel.home.HomeViewModel
 import com.app.haven.viewmodel.home.HouseholdMembersViewModel
+import androidx.compose.ui.draw.alpha
+import com.app.haven.view.common.Avatar
 
 // Household page: name, invite code, members (current + past), leave household
 @Composable
@@ -149,7 +151,14 @@ private fun MembersSection(
         Text("Members (${members.size})", style = MaterialTheme.typography.titleMedium)
         members.forEach { m ->
             val suffix = if (m.uid == myUid) " (you)" else ""
-            Text(m.displayName.ifBlank { "Unnamed" } + suffix, style = MaterialTheme.typography.bodyLarge)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = 4.dp)
+            ) {
+                Avatar(m.displayName, m.photoUrl)
+                Spacer(Modifier.width(12.dp))
+                Text(m.displayName.ifBlank { "Unnamed" } + suffix, style = MaterialTheme.typography.bodyLarge)
+            }
         }
 
         if (past.isNotEmpty()) {
@@ -176,11 +185,14 @@ private fun MembersSection(
             AnimatedVisibility(showPast) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     past.forEach { m ->
-                        Text(
-                            m.displayName.ifBlank { "Unnamed" },
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = faded
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            Avatar(m.displayName, m.photoUrl, modifier = Modifier.alpha(0.55f))
+                            Spacer(Modifier.width(12.dp))
+                            Text(m.displayName.ifBlank { "Unnamed" }, style = MaterialTheme.typography.bodyLarge, color = faded)
+                        }
                     }
                 }
             }

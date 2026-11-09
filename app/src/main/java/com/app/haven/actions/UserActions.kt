@@ -58,7 +58,16 @@ class UserActions(
         val ref = storage.reference.child("profile_photos/$uid/avatar.jpg")
         ref.putFile(uri).await()
         val url = ref.downloadUrl.await().toString()
-        db.collection("users").document(uid).update("photoUrl", url).await()
+        val userRef = db.collection("users").document(uid)
+        userRef.update("photoUrl", url).await()
+
+// copy onto the member doc so household screens don't need to read other users' docs
+        val householdId = userRef.get().await().getString("householdId")
+        if (householdId != null) {
+            db.collection("households").document(householdId)
+                .collection("members").document(uid)
+                .update("photoUrl", url).await()
+        }
         return url
     }
 }

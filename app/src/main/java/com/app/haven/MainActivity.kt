@@ -19,6 +19,11 @@ import com.app.haven.view.householdUI.HouseholdSetupScreen
 import com.app.haven.navigation.MainScaffold
 import com.app.haven.viewmodel.SessionState
 import com.app.haven.viewmodel.SessionViewModel
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import com.app.haven.view.authUI.WelcomeScreen
+import androidx.activity.compose.BackHandler
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,7 +47,18 @@ fun HavenApp(vm: SessionViewModel = viewModel(factory = SessionViewModel.Factory
         SessionState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
-        SessionState.SignedOut -> AuthScreen(onAuthenticated = vm::refresh)
+        SessionState.SignedOut -> {
+            // false = welcome screen, true = login/sign-up form
+            var showAuth by rememberSaveable { mutableStateOf(false) }
+            if (showAuth) {
+                AuthScreen(
+                    onAuthenticated = vm::refresh,
+                    onBack = { showAuth = false }
+                )
+            } else {
+                WelcomeScreen(onGetStarted = { showAuth = true })
+            }
+        }
         SessionState.NeedsHousehold -> HouseholdSetupScreen(onDone = vm::refresh, onLogout = vm::logOut)
         SessionState.InHousehold -> MainScaffold(onLogout = vm::logOut, onLeftHousehold = vm::onLeftHousehold)
         is SessionState.Error -> Column(
