@@ -20,19 +20,21 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import com.app.haven.actions.UserActions
 import com.app.haven.data.model.User
+import com.app.haven.view.choreUI.AddChoreScreen
+import com.app.haven.view.choreUI.ChoresScreen
+import com.app.haven.view.common.profileUI.ProfileScreen
 import com.app.haven.view.expenseUI.AddExpenseScreen
 import com.app.haven.view.expenseUI.LedgerScreen
 import com.app.haven.view.expenseUI.SettleExpenseScreen
 import com.app.haven.view.homeUI.HomeScreen
 import com.app.haven.view.homeUI.HouseholdDetailsScreen
-import com.app.haven.view.common.profileUI.ProfileScreen
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
 private val tabs = listOf(
     Tab("home", "Home", Icons.Default.Home),
     Tab("ledger_tab", "Ledger", Icons.AutoMirrored.Filled.List),
-    Tab("chores", "Chores", Icons.Default.Check),
+    Tab("chores_tab", "Chores", Icons.Default.Check),
     Tab("pantry", "Pantry", Icons.Default.ShoppingCart)
 )
 
@@ -85,8 +87,8 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
                     //the different routes from the home screen
                     onOpenProfile = { nav.navigate("profile") },
                     onOpenHouseholdDetails = { nav.navigate("household_details") },
-                    onOpenLedger = { goToTab("ledger_tab") }
-                )
+                    onOpenLedger = { goToTab("ledger_tab") },
+                    onOpenChores = { goToTab("chores_tab") })
             }
             navigation(startDestination = "ledger", route = "ledger_tab") {
                 composable("ledger") {
@@ -128,7 +130,24 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
                     onBack = { nav.popBackStack() }
                 )
             }
-            composable("chores") { Placeholder("Chores") }    // replace with ChoresScreen
+
+// chores tab: list screen + add form, grouped so the Chores tab stays highlighted on inner screens
+            navigation(startDestination = "chores", route = "chores_tab") {
+                // list of chores with checkboxes; the + button opens the add form
+                composable("chores") {
+                    WithHousehold(userResult) { householdId, myUid ->
+                        ChoresScreen(householdId, myUid, onAddChore = { nav.navigate("chores/add") })
+                    }
+                }
+
+                // form for a new chore (name, who it's for, due date, repeat)
+                composable("chores/add") {
+                    WithHousehold(userResult) { householdId, myUid ->
+                        AddChoreScreen(householdId, myUid, onDone = { nav.popBackStack() })
+                    }
+                }
+            }
+
             composable("pantry") { Placeholder("Pantry") }    // replace with GroceryScreen
         }
     }
