@@ -44,7 +44,7 @@ fun AddChoreScreen(
         PageHeader("Add chore", onBack = onDone)
 
         OutlinedTextField(
-            title, { title = it }, label = { Text("Chore") },
+            title, { title = it }, label = { Text("Choregit log --oneline") },
             singleLine = true, modifier = Modifier.fillMaxWidth()
         )
 
