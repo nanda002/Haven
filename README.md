@@ -86,15 +86,15 @@ Ledger → + Add expense · tap expense to Edit · balance card → Balances (Se
 
 ## Use of generative AI
 
-Generative AI tools were used as assistants during development of this project. All AI-generated output was reviewed, tested, and edited by the team before being included, and we take full responsibility for the final code and documentation.
+Generative AI tools (Claude) were used as assistants during development of this project. All AI-generated output was reviewed, tested, and edited by the team before being included, and we take full responsibility for the final code and documentation.
 
 **Where AI was used**
-- Development of new topics (Room, MVVM flow, etc)
-- Brainstorming solutions (Introduction of Manual DI) and logic
+- Development assistance on new topics (eg., Room, MVVM flow, etc)
+- Brainstorming solutions (eg., introduction of Manual DI) and logic
 - Unit test development for testing logic in the domain files
 - Removal of any redundant code.
 - Debugging and explaining errors
 
 **Verification**
-- Every AI suggestion was read, understood, and modified before being committed. Code was compiled, run, and tested, and changes went through the team's normal review process. We did not merge code we couldn't explain
+- Every AI suggestion was read, understood, and modified before being committed. Code was compiled, run, and tested, and changes went through the team's normal review process. We did not merge code we couldn't explain.
 ---
