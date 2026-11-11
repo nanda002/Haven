@@ -96,5 +96,5 @@ Generative AI tools were used as assistants during development of this project. 
 - Debugging and explaining errors
 
 **Verification**
-Every AI suggestion was read, understood, and modified before being committed. Code was compiled, run, and tested, and changes went through the team's normal review process. We did not merge code we couldn't explain
+- Every AI suggestion was read, understood, and modified before being committed. Code was compiled, run, and tested, and changes went through the team's normal review process. We did not merge code we couldn't explain
 ---
