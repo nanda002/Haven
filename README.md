@@ -79,7 +79,6 @@ Ledger → + Add expense · tap expense to Edit · balance card → Balances (Se
 | `nanda-branch` | Login/sign-up fixes and initial screens |
 | `room` | Room persistence (expenses, settlements), app container, expense drafts, offline write fix |
 | `profile` | Profile screen + photo upload, Ledger UI refresh, locked expenses |
-| Module | Description |
 | `dashboard` | Dashboard screen, balance summary, recent activity overview |
 | `chores` | Chore list, assignments, recurring chores, completion tracking |
 ---
