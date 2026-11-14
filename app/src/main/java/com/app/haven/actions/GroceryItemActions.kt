@@ -17,6 +17,10 @@ interface GroceryItemActions {
     suspend fun addItem(householdId: String, groceryitem: GroceryItem): Result<Unit>
     suspend fun updateItem(householdId: String, groceryitem: GroceryItem): Result<Unit>
     suspend fun deleteItem(householdId: String, groceryitemId: String): Result<Unit>
+    //checkbox: bought = true saves who bought it and when; false clears those again
+    suspend fun setBought(
+        householdId: String, groceryitemId: String, bought: Boolean, buyerUid: String, buyerName: String
+    ): Result<Unit>
 }
 
 class GroceryItemRepository(
@@ -65,6 +69,24 @@ class GroceryItemRepository(
             require(groceryitemId.isNotBlank()) { "Missing grocery item id" }
             groceryitems(householdId).document(groceryitemId).delete()
                 .addOnFailureListener { Log.e("Grocery Item Repo", "delete failed on the server") }
+            Unit
+        }
+
+    override suspend fun setBought(
+        householdId: String, groceryitemId: String, bought: Boolean, buyerUid: String, buyerName: String
+    ): Result<Unit> =
+        runCatching {
+            require(groceryitemId.isNotBlank()) { "Missing grocery item id" }
+            if (bought) require(buyerUid.isNotBlank()) { "Missing user" }
+            //only these fields, so a rename by someone else at the same time isn't overwritten
+            groceryitems(householdId).document(groceryitemId).update(
+                mapOf(
+                    "bought" to bought,
+                    "boughtAt" to if (bought) System.currentTimeMillis() else null,
+                    "paidByUid" to if (bought) buyerUid else "",
+                    "paidByName" to if (bought) buyerName else ""
+                )
+            ).addOnFailureListener { Log.e("Grocery Item Repo", "set bought failed on the server") }
             Unit
         }
 }
