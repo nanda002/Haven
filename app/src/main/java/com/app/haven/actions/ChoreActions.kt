@@ -53,11 +53,17 @@ class ChoreRepository(
             require(chore.id.isNotBlank()) { "Missing chore id" }
             chores(householdId).document(chore.id).update(
                 mapOf(
+                    "title" to chore.title.trim(),
                     "assigneeUid" to chore.assigneeUid,
                     "assigneeName" to chore.assigneeName,
                     "dueEpochDay" to chore.dueEpochDay,
+                    "repeatDays" to chore.repeatDays,
+                    "rotate" to chore.rotate,
+                    "endEpochDay" to chore.endEpochDay,
                     "done" to chore.done,
-                    "completedByUid" to chore.completedByUid
+                    "completedByUid" to chore.completedByUid,
+                    "completedByName" to chore.completedByName,
+                    "lastCompletedEpochDay" to chore.lastCompletedEpochDay
                 )
             ).addOnFailureListener { Log.e("Chore Repo", "update failed on the server") }
             Unit

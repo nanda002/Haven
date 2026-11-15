@@ -11,6 +11,7 @@ import com.app.haven.appContainer
 import com.app.haven.domain.chore.Assignee
 import com.app.haven.domain.chore.Chore
 import com.app.haven.domain.chore.completeChore
+import com.app.haven.domain.chore.reopen
 import com.app.haven.domain.chore.todayEpochDay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,6 +42,11 @@ class ChoresViewModel(
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    // used to flag chores still assigned to someone who left the household
+    val memberUids: StateFlow<Set<String>> = members
+        .map { list -> list.map { it.uid }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
     val uiState: StateFlow<ChoresUiState> = chores.getChores(householdId)
         .map<List<Chore>, ChoresUiState> { list ->
             if (list.isEmpty()) ChoresUiState.Empty
@@ -53,11 +59,29 @@ class ChoresViewModel(
     val error: StateFlow<String?> = _error.asStateFlow()
     fun onErrorShown() { _error.value = null }
 
+    // the chore as it was before the last "mark done", so the snackbar can offer Undo
+    private val _undo = MutableStateFlow<Chore?>(null)
+    val undo: StateFlow<Chore?> = _undo.asStateFlow()
+    fun onUndoShown() { _undo.value = null }
+
     fun onToggleDone(chore: Chore) {
-        val updated = if (chore.done) chore.copy(done = false, completedByUid = null)
-        else completeChore(chore, members.value, myUid, todayEpochDay())
+        val updated = if (chore.done) {
+            chore.reopen()
+        } else {
+            val me = members.value.firstOrNull { it.uid == myUid } ?: Assignee(myUid, "Someone")
+            completeChore(chore, members.value, me, todayEpochDay())
+        }
         viewModelScope.launch {
-            chores.updateChore(householdId, updated).onFailure { _error.value = it.friendlyMessage() }
+            chores.updateChore(householdId, updated)
+                .onSuccess { if (!chore.done) _undo.value = chore }
+                .onFailure { _error.value = it.friendlyMessage() }
+        }
+    }
+
+    // put the chore back exactly as it was (assignee, due date, who did it last)
+    fun onUndo(previous: Chore) {
+        viewModelScope.launch {
+            chores.updateChore(householdId, previous).onFailure { _error.value = it.friendlyMessage() }
         }
     }
 

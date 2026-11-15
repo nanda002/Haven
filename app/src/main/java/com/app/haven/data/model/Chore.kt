@@ -12,17 +12,25 @@ data class Chore(
     val assigneeName: String = "",
     val dueEpochDay: Long = 0L,
     val repeatDays: Int = 0,
+    val rotate: Boolean = true,
+    val endEpochDay: Long = 0L,
     val done: Boolean = false,
     val completedByUid: String? = null,
+    val completedByName: String? = null,
+    val lastCompletedEpochDay: Long = 0L,
     @ServerTimestamp val createdAt: Date? = null
 )
 
 fun Chore.toDomain() = DomainChore(
     id = id, title = title, assigneeUid = assigneeUid, assigneeName = assigneeName,
-    dueEpochDay = dueEpochDay, repeatDays = repeatDays, done = done, completedByUid = completedByUid
+    dueEpochDay = dueEpochDay, repeatDays = repeatDays, rotate = rotate, endEpochDay = endEpochDay,
+    done = done, completedByUid = completedByUid, completedByName = completedByName,
+    lastCompletedEpochDay = lastCompletedEpochDay
 )
 
 fun DomainChore.toData() = Chore(
     title = title, assigneeUid = assigneeUid, assigneeName = assigneeName,
-    dueEpochDay = dueEpochDay, repeatDays = repeatDays, done = done, completedByUid = completedByUid
+    dueEpochDay = dueEpochDay, repeatDays = repeatDays, rotate = rotate, endEpochDay = endEpochDay,
+    done = done, completedByUid = completedByUid, completedByName = completedByName,
+    lastCompletedEpochDay = lastCompletedEpochDay
 )
