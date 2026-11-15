@@ -62,8 +62,8 @@ class AddUpPricesViewModel(
         excludedIds.update { if (included) it - itemId else it + itemId }
     }
 
-    //gives the add expense form what it needs; does nothing if a price is still missing or invalid
-    //itemIds: the ticked items, taken off the list once the expense is saved
+    //gives the add expense form what it needs
+    //does nothing if a price is still missing or invalid
     fun onContinue(onReady: (amountCents: Long, description: String, itemIds: List<String>) -> Unit) {
         val s = uiState.value
         if (!s.canContinue) return

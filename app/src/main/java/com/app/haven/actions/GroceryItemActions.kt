@@ -21,6 +21,8 @@ interface GroceryItemActions {
     suspend fun setBought(
         householdId: String, groceryitemId: String, bought: Boolean, buyerUid: String, buyerName: String
     ): Result<Unit>
+    //after the expense for these items is saved: take them off the list (kept for Bought history)
+    suspend fun markAddedToExpense(householdId: String, groceryitemIds: List<String>): Result<Unit>
 }
 
 class GroceryItemRepository(
@@ -87,6 +89,17 @@ class GroceryItemRepository(
                     "paidByName" to if (bought) buyerName else ""
                 )
             ).addOnFailureListener { Log.e("Grocery Item Repo", "set bought failed on the server") }
+            Unit
+        }
+
+    override suspend fun markAddedToExpense(householdId: String, groceryitemIds: List<String>): Result<Unit> =
+        runCatching {
+            val ids = groceryitemIds.filter { it.isNotBlank() }
+            if (ids.isEmpty()) return@runCatching
+            val batch = db.batch()
+            ids.forEach { id -> batch.update(groceryitems(householdId).document(id), "addedToExpense", true) }
+            batch.commit()
+                .addOnFailureListener { Log.e("Grocery Item Repo", "mark added to expense failed on the server") }
             Unit
         }
 }
