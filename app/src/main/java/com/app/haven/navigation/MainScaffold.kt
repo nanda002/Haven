@@ -133,17 +133,27 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
 
 // chores tab: list screen + add form, grouped so the Chores tab stays highlighted on inner screens
             navigation(startDestination = "chores", route = "chores_tab") {
-                // list of chores with checkboxes; the + button opens the add form
                 composable("chores") {
                     WithHousehold(userResult) { householdId, myUid ->
-                        ChoresScreen(householdId, myUid, onAddChore = { nav.navigate("chores/add") })
+                        ChoresScreen(
+                            householdId, myUid,
+                            onAddChore = { nav.navigate("chores/add") },
+                            onEditChore = { id -> nav.navigate("chores/edit/$id") }
+                        )
                     }
                 }
 
-                // form for a new chore (name, who it's for, due date, repeat)
                 composable("chores/add") {
                     WithHousehold(userResult) { householdId, myUid ->
                         AddChoreScreen(householdId, myUid, onDone = { nav.popBackStack() })
+                    }
+                }
+
+                // same form, filled in with an existing chore
+                composable("chores/edit/{choreId}") { entry ->
+                    val choreId = entry.arguments?.getString("choreId")
+                    WithHousehold(userResult) { householdId, myUid ->
+                        AddChoreScreen(householdId, myUid, choreId = choreId, onDone = { nav.popBackStack() })
                     }
                 }
             }

@@ -14,17 +14,17 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-// My chores that need doing now: not done, assigned to me, due today or overdue.
+// My chores: not done, assigned to me, overdue / due today / due within the next 7 days.
 class HomeChoresViewModel(
     chores: ChoreActions,
     householdId: String,
     myUid: String
 ) : ViewModel() {
 
-    val dueChores: StateFlow<List<Chore>> = chores.getChores(householdId)
+    val myChores: StateFlow<List<Chore>> = chores.getChores(householdId)
         .map { list ->
             val today = todayEpochDay()
-            list.filter { !it.done && it.assigneeUid == myUid && it.dueEpochDay <= today }
+            list.filter { !it.done && it.assigneeUid == myUid && it.dueEpochDay <= today + 7 }
                 .sortedBy { it.dueEpochDay }
         }
         .catch { emit(emptyList()) }

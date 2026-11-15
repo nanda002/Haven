@@ -90,6 +90,6 @@ private fun ChoresSection(
     onOpenChores: () -> Unit,
     choresVm: HomeChoresViewModel = viewModel(factory = HomeChoresViewModel.factory(householdId, myUid))
 ) {
-    val due by choresVm.dueChores.collectAsStateWithLifecycle()
-    HomeChoresCard(due, onClick = onOpenChores)
+    val mine by choresVm.myChores.collectAsStateWithLifecycle()
+    HomeChoresCard(mine, onClick = onOpenChores)
 }
