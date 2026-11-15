@@ -35,7 +35,41 @@ We propose ‘Haven’, a shared household management app that centralizes loggi
 - Writes made offline are queued and synced automatically when back online
 - Local data (Room) is cleared on logout
 
-### To do (before Update 2)
+## Setup Instructions
+
+### Firebase Configuration
+Haven requires a `google-services.json` file to connect to Firebase.
+
+1. Open the [Firebase Console](https://console.firebase.google.com/).
+2. Create or select the Firebase project associated with Haven.
+3. Navigate to **Project Settings** → **General**.
+4. Under **Your apps**, select the Android application.
+5. Find the **SDK setup and configuration** section and download `google-services.json`.
+6. Place the downloaded file directly inside the project's `app/` directory.
+
+The final location should be:
+
+```text
+Haven/
+└── app/
+    └── google-services.json
+    ├── build.gradle.kts
+│   └── src/
+├── build.gradle.kts
+└── settings.gradle.kts
+```
+
+**Note:** If the `google-services.json` file has already been provided by the team, you can use that file directly instead of downloading another one. No additional Firebase project setup is required when using the existing project configuration.
+
+### Required Firebase Services
+
+The Haven Firebase project uses:
+- Firebase Authentication (Email/Password)
+- Cloud Firestore
+
+---
+
+### To Do (before Update 2)
 - [ ] Chores tab (rotation logic, assign, mark done, due dates)
 - [ ] Groceries tab (shared list, check off)
 - [ ] Third-party API - planned: barcode scanning with the Open Food Facts API for groceries
@@ -45,6 +79,8 @@ We propose ‘Haven’, a shared household management app that centralizes loggi
 ---
 
 ## App flow
+
+```text
 Launch → signed in?
    ├─ no  → Log in / Sign up
    └─ yes → in a household?
@@ -54,6 +90,7 @@ Launch → signed in?
                        └─ Menu → Profile · Household details
 Bottom tabs: Home · Ledger · Chores (coming soon) · Pantry (coming soon)
 Ledger → + Add expense · tap expense to Edit · balance card → Balances (Settle up)
+```
 
 ## Architecture
 - **UI:** Jetpack Compose screens (`view/`) - only know their ViewModel
@@ -66,22 +103,46 @@ Ledger → + Add expense · tap expense to Edit · balance card → Balances (Se
 ---
 
 ## Team & work split
-| Member | Main contributions |
-|---|---|
-| **Chris** | Firebase/Firestore & Room data model; expenses (logic + screens); app container; profile screen and photo upload |
-| **Nandana** | Login and sign-up screens; initial screens; dashboard; household details; leave household logic; project folder structure |
+| Member | Main contributions                                                                                                                                               |
+|---|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Chris** | Firebase/Firestore & Room data model; expenses (logic + screens); app container; profile screen and photo upload                                                 |
+| **Nandana** | Login/sign-up logic; initial screens and household logic; dashboard (balance summary+recent activity); chores logic; household details; project folder structure |
+
 
 ### Branches
-| Branch | What it contains |
-|---|---|
-| `main` | Integrated, working app |
-| `chris_work` | Expense feature: models, logic, tests, repository, Ledger, add/edit expense, settle up; early Ledger UI |
-| `nanda-branch` | Login/sign-up fixes and initial screens |
-| `room` | Room persistence (expenses, settlements), app container, expense drafts, offline write fix |
-| `profile` | Profile screen + photo upload, Ledger UI refresh, locked expenses |
+| Branch         | What it contains                                                                                        |
+|----------------|---------------------------------------------------------------------------------------------------------|
+| `main`         | Integrated, working app                                                                                 |
+| `chris_work`   | Expense feature: models, logic, tests, repository, Ledger, add/edit expense, settle up; early Ledger UI |
+| `nanda-branch` | Login/sign-up fixes and initial screens                                                                 |
+| `room`         | Room persistence (expenses, settlements), app container, expense drafts, offline write fix              |
+| `profile`      | Profile screen + photo upload, Ledger UI refresh, locked expenses                                       |
+| `dashboard`    | Dashboard screen, balance summary, recent activity overview                                             |
+| `chores`       | Chore creation, assignments, daily/weekly recurring schedules, automatic rotation, completion tracking                                         |
+| `grocery`      | Shared household grocery list, adding items, checking off purchased items                                       |
+
+---
+
+## Build and Run
+
+1. Open the project in Android Studio.
+2. Allow Gradle to sync and download the required dependencies.
+3. Connect an Android device or start an emulator.
+4. Build and run the application.
 
 ---
 
 ## Use of generative AI
 
+Generative AI tools (Claude) were used as assistants during development of this project. All AI-generated output was reviewed, tested, and edited by the team before being included, and we take full responsibility for the final code and documentation.
+
+**Where AI was used**
+- Development assistance on new topics (eg., Room, MVVM flow, etc)
+- Brainstorming solutions (eg., introduction of Manual DI) and logic
+- Unit test development for testing logic in the domain files
+- Removal of any redundant code.
+- Debugging and explaining errors
+
+**Verification**
+- Every AI suggestion was read, understood, and modified before being committed. Code was compiled, run, and tested, and changes went through the team's normal review process. We did not merge code we couldn't explain.
 ---

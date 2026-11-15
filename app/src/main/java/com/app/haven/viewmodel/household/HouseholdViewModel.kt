@@ -23,8 +23,12 @@ class HouseholdViewModel(
     private val _username = MutableStateFlow<String?>(null)
     val username: StateFlow<String?> = _username.asStateFlow()
 
-    init {
+    //called each time the setup screen appears, not once in init: this ViewModel belongs to the Activity,
+    //so after logging out and signing in as someone else it's reused and would still show the old name
+    fun loadUsername() {
+        //whenever we want something using the repo functions, we call viewModelScope
         viewModelScope.launch {
+            _username.value = null   //don't show the previous user's name while loading
             _username.value = runCatching { users.loadUser()?.username }.getOrNull()?.takeIf { it.isNotBlank() }
         }
     }

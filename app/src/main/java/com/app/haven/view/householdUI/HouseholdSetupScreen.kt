@@ -25,6 +25,8 @@ fun HouseholdSetupScreen(
     var mode by remember { mutableStateOf(SetupMode.CHOOSE) }
     var name by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
+    //reload who's signed in every time this screen is shown (the account may have changed since last time)
+    LaunchedEffect(Unit) { vm.loadUsername() }
 
     Column(
         Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(24.dp),
