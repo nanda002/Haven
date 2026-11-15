@@ -70,7 +70,7 @@ fun Chore.lastDoneLabel(today: Long): String? {
     return (if (done) "Done by " else "Last done by ") + "$by $whenText"
 }
 
-// ROUND ROBIN: fixed order (sorted by uid), next person, wrap around.
+// ROUND ROBIN: current person (sorted by uid), next person, wrap around.
 // If the current person left, start from the top.
 fun nextAssignee(members: List<Assignee>, currentUid: String?): Assignee? {
     if (members.isEmpty()) return null
