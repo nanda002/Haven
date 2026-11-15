@@ -17,6 +17,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.domain.chore.Chore
 import com.app.haven.domain.chore.ChoreStatus
 import com.app.haven.domain.chore.dueLabel
+import com.app.haven.domain.chore.lastDoneLabel
 import com.app.haven.domain.chore.repeatLabel
 import com.app.haven.domain.chore.status
 import com.app.haven.viewmodel.chore.ChoresUiState
@@ -27,15 +28,31 @@ fun ChoresScreen(
     householdId: String,
     myUid: String,
     onAddChore: () -> Unit,
+    onEditChore: (String) -> Unit,
     vm: ChoresViewModel = viewModel(factory = ChoresViewModel.factory(householdId, myUid))
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
+    val memberUids by vm.memberUids.collectAsStateWithLifecycle()
+    val undo by vm.undo.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var pendingDelete by remember { mutableStateOf<Chore?>(null) }
 
     LaunchedEffect(error) {
         error?.let { snackbar.showSnackbar(it); vm.onErrorShown() }
+    }
+
+    // after "mark done": offer to put the chore back as it was
+    LaunchedEffect(undo) {
+        undo?.let { previous ->
+            val result = snackbar.showSnackbar(
+                message = "\"${previous.title}\" marked done",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) vm.onUndo(previous)
+            vm.onUndoShown()
+        }
     }
 
     pendingDelete?.let { c ->
@@ -87,6 +104,9 @@ fun ChoresScreen(
                             ChoreRow(
                                 chore = chore,
                                 today = s.today,
+                                // assignee left the household -> needs someone new (edit to reassign)
+                                orphaned = !chore.done && memberUids.isNotEmpty() && chore.assigneeUid !in memberUids,
+                                onEdit = { onEditChore(chore.id) },
                                 onToggle = { vm.onToggleDone(chore) },
                                 onDelete = { pendingDelete = chore }
                             )
@@ -99,15 +119,24 @@ fun ChoresScreen(
 }
 
 @Composable
-private fun ChoreRow(chore: Chore, today: Long, onToggle: () -> Unit, onDelete: () -> Unit) {
+private fun ChoreRow(
+    chore: Chore,
+    today: Long,
+    orphaned: Boolean,
+    onEdit: () -> Unit,
+    onToggle: () -> Unit,
+    onDelete: () -> Unit
+) {
     val overdue = chore.status(today) == ChoreStatus.OVERDUE
     val subtitle = listOfNotNull(
-        chore.assigneeName,
-        chore.dueLabel(today),
+        if (orphaned) "Needs a new assignee" else chore.assigneeName,
+        chore.dueLabel(today).takeUnless { chore.done },
         repeatLabel(chore.repeatDays)
     ).joinToString(" · ")
+    val lastDone = chore.lastDoneLabel(today)
 
     ElevatedCard(
+        onClick = onEdit,
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
             contentColor = MaterialTheme.colorScheme.onSurface
@@ -124,9 +153,16 @@ private fun ChoreRow(chore: Chore, today: Long, onToggle: () -> Unit, onDelete: 
                 Text(
                     subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (overdue) MaterialTheme.colorScheme.error
+                    color = if (overdue || orphaned) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                lastDone?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             IconButton(onClick = onDelete) {
                 Icon(
