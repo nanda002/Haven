@@ -66,21 +66,22 @@ Ledger → + Add expense · tap expense to Edit · balance card → Balances (Se
 ---
 
 ## Team & work split
-| Member | Main contributions |
-|---|---|
-| **Chris** | Firebase/Firestore & Room data model; expenses (logic + screens); app container; profile screen and photo upload |
-| **Nandana** | Login and sign-up screens; initial screens; dashboard; household details; leave household logic; project folder structure |
+| Member | Main contributions                                                                                                                                               |
+|---|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Chris** | Firebase/Firestore & Room data model; expenses (logic + screens); app container; profile screen and photo upload                                                 |
+| **Nandana** | Login/sign-up logic; initial screens and household logic; dashboard (balance summary+recent activity); chores logic; household details; project folder structure |
 
 ### Branches
-| Branch | What it contains |
-|---|---|
-| `main` | Integrated, working app |
-| `chris_work` | Expense feature: models, logic, tests, repository, Ledger, add/edit expense, settle up; early Ledger UI |
-| `nanda-branch` | Login/sign-up fixes and initial screens |
-| `room` | Room persistence (expenses, settlements), app container, expense drafts, offline write fix |
-| `profile` | Profile screen + photo upload, Ledger UI refresh, locked expenses |
-| `dashboard` | Dashboard screen, balance summary, recent activity overview |
-| `chores` | Chore list, assignments, recurring chores, completion tracking |
+| Branch         | What it contains                                                                                        |
+|----------------|---------------------------------------------------------------------------------------------------------|
+| `main`         | Integrated, working app                                                                                 |
+| `chris_work`   | Expense feature: models, logic, tests, repository, Ledger, add/edit expense, settle up; early Ledger UI |
+| `nanda-branch` | Login/sign-up fixes and initial screens                                                                 |
+| `room`         | Room persistence (expenses, settlements), app container, expense drafts, offline write fix              |
+| `profile`      | Profile screen + photo upload, Ledger UI refresh, locked expenses                                       |
+| `dashboard`    | Dashboard screen, balance summary, recent activity overview                                             |
+| `chores`       | Chore creation, assignments, daily/weekly recurring schedules, automatic rotation, completion tracking                                         |
+| `grocery`      | Shared household grocery list, adding items, checking off purchased items                                       |
 ---
 
 ## Use of generative AI
