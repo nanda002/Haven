@@ -67,7 +67,9 @@ The Haven Firebase project uses:
 - Firebase Authentication (Email/Password)
 - Cloud Firestore
 
-### To do (before Update 2)
+---
+
+### To Do (before Update 2)
 - [ ] Chores tab (rotation logic, assign, mark done, due dates)
 - [ ] Groceries tab (shared list, check off)
 - [ ] Third-party API - planned: barcode scanning with the Open Food Facts API for groceries
@@ -106,6 +108,7 @@ Ledger → + Add expense · tap expense to Edit · balance card → Balances (Se
 | **Chris** | Firebase/Firestore & Room data model; expenses (logic + screens); app container; profile screen and photo upload                                                 |
 | **Nandana** | Login/sign-up logic; initial screens and household logic; dashboard (balance summary+recent activity); chores logic; household details; project folder structure |
 
+
 ### Branches
 | Branch         | What it contains                                                                                        |
 |----------------|---------------------------------------------------------------------------------------------------------|
@@ -117,15 +120,17 @@ Ledger → + Add expense · tap expense to Edit · balance card → Balances (Se
 | `dashboard`    | Dashboard screen, balance summary, recent activity overview                                             |
 | `chores`       | Chore creation, assignments, daily/weekly recurring schedules, automatic rotation, completion tracking                                         |
 | `grocery`      | Shared household grocery list, adding items, checking off purchased items                                       |
+
 ---
 
-### Build and Run
+## Build and Run
 
 1. Open the project in Android Studio.
 2. Allow Gradle to sync and download the required dependencies.
 3. Connect an Android device or start an emulator.
 4. Build and run the application.
 
+---
 
 ## Use of generative AI
 
