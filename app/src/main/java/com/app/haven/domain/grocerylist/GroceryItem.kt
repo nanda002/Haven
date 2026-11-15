@@ -13,5 +13,7 @@ data class GroceryItem(
     val bought: Boolean = false,
     //when it was checked off (millis); null while not bought
     val boughtAt: Long? = null,
+    //true once it's part of a saved expense: hidden from the list, still shown in Bought history
+    val addedToExpense: Boolean = false,
     val createdAtMillis: Long? = null
 )

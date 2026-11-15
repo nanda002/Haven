@@ -18,6 +18,8 @@ data class GroceryItem (
     //for checking if the items were bought or not
     val bought: Boolean = false,
     val boughtAt: Long? = null,
+    //true once it's part of a saved expense: hidden from the list, still shown in Bought history
+    val addedToExpense: Boolean = false,
     @ServerTimestamp val createdAt: Date? = null
 )
 
@@ -31,6 +33,7 @@ fun GroceryItem.toDomain() = DomainGrocery(
     paidByName = paidByName,
     bought = bought,
     boughtAt = boughtAt,
+    addedToExpense = addedToExpense,
     createdAtMillis = createdAt?.time
 )
 
@@ -43,4 +46,5 @@ fun DomainGrocery.toData() = GroceryItem(
     paidByName = paidByName,
     bought = bought,
     boughtAt = boughtAt,
+    addedToExpense = addedToExpense,
 )
