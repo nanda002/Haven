@@ -5,11 +5,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.app.haven.actions.GroceryItemActions
-import com.app.haven.actions.GroceryItemRepository
 import com.app.haven.actions.HouseholdActions
 import com.app.haven.actions.friendlyMessage
 import com.app.haven.appContainer
 import com.app.haven.domain.grocerylist.GroceryItem
+import com.app.haven.domain.grocerylist.onList
 import com.app.haven.domain.grocerylist.validateGroceryItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,7 +31,9 @@ class MainGroceryItemViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    //only what's still on the list; items already in a saved expense are in Bought history instead
     val items: StateFlow<List<GroceryItem>> = groceries.getItems(householdId)
+        .map { it.onList() }
         .catch { e ->
             _error.value = e.friendlyMessage()
             emit(emptyList())
@@ -68,10 +70,10 @@ class MainGroceryItemViewModel(
         }
     }
 
-    //only the person who added it can delete it
+    //only the person who added it, and only before it's bought (the screen hides Delete otherwise too)
     fun onDelete(itemId: String) {
         val item = items.value.firstOrNull { it.id == itemId } ?: return
-        if (item.addedByUid != myUid) return
+        if (item.addedByUid != myUid || item.bought) return
         viewModelScope.launch {
             groceries.deleteItem(householdId, itemId)
                 .onFailure { _error.value = it.friendlyMessage() }
@@ -79,11 +81,9 @@ class MainGroceryItemViewModel(
     }
 
     //anyone can check an item off; only the buyer can uncheck it
-    //checkbox: marks this item bought by me, or unbought again (does not add an expense)
     fun onToggleBought(item: GroceryItem) {
         if (item.bought && item.paidByUid != myUid) return
         viewModelScope.launch {
-            //flip it: not bought -> bought by me, bought by me -> not bought
             groceries.setBought(householdId, item.id, bought = !item.bought, buyerUid = myUid, buyerName = myName.value)
                 .onFailure { _error.value = it.friendlyMessage() }
         }
@@ -95,8 +95,7 @@ class MainGroceryItemViewModel(
         fun factory(householdId: String, myUid: String) = viewModelFactory {
             initializer {
                 val c = appContainer()
-                //TODO: move to AppContainer (val groceryItemRepository) like the other repositories
-                MainGroceryItemViewModel(GroceryItemRepository(), c.householdActions, householdId, myUid)
+                MainGroceryItemViewModel(c.groceryItemRepository, c.householdActions, householdId, myUid)
             }
         }
     }

@@ -26,11 +26,15 @@ import com.app.haven.domain.grocerylist.GroceryItem
 import com.app.haven.viewmodel.groceryitem.MainGroceryItemViewModel
 
 //Gets the ViewModel and passes its state and events into the screen below.
-//This is what the "pantry" route in MainScaffold should call.
+//This is what the "grocery" route in MainScaffold calls.
 @Composable
 fun GroceryListRoute(
     householdId: String,
     myUid: String,
+    //bottom bar's "Add to expense": opens the Enter prices screen
+    onAddToExpense: () -> Unit = {},
+    //"Show Bought Items": opens the bought history
+    onShowBought: () -> Unit = {},
     vm: MainGroceryItemViewModel = viewModel(factory = MainGroceryItemViewModel.factory(householdId, myUid))
 ) {
     val items by vm.items.collectAsStateWithLifecycle()
@@ -42,7 +46,9 @@ fun GroceryListRoute(
         onAdd = vm::onAdd,
         onToggleBought = vm::onToggleBought,
         onRename = vm::onRename,
-        onDelete = vm::onDelete
+        onDelete = vm::onDelete,
+        onAddToExpense = onAddToExpense,
+        onShowBought = onShowBought
     )
 }
 
@@ -57,8 +63,10 @@ fun MainGroceryItemScreen(
     onToggleBought: (GroceryItem) -> Unit,
     onRename: (GroceryItem, String) -> Unit,
     onDelete: (String) -> Unit,
-    //bottom bar's "Add to expense"; does nothing until the conversion screen exists
-    onAddToExpense: () -> Unit = {}
+    //bottom bar's "Add to expense"
+    onAddToExpense: () -> Unit = {},
+    //"Show Bought Items" button
+    onShowBought: () -> Unit = {}
 ) {
     //what the user is typing in the add bar (survives rotation)
     var text by rememberSaveable { mutableStateOf("") }
@@ -109,11 +117,14 @@ fun MainGroceryItemScreen(
     }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Text(
-            "Groceries",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(start = 8.dp, top = 24.dp, bottom = 8.dp)
-        )
+        //title + button to the bought history (items grouped by the day they were bought)
+        Row(
+            Modifier.fillMaxWidth().padding(start = 8.dp, top = 24.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Groceries", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+            OutlinedButton(onClick = onShowBought) { Text("Show Bought Items") }
+        }
 
         //add bar: type an item, then tap + or the keyboard's Done to add it; the keyboard stays open for the next one
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -187,9 +198,9 @@ private fun GroceryRow(
 ) {
     //anyone can check an item off; only the person who bought it can uncheck it
     val canToggle = !item.bought || item.paidByUid == myUid
-    //only the person who added it can edit/delete; editing only before it's bought
-    val isMine = item.addedByUid == myUid
-    val canEdit = isMine && !item.bought
+    //only the person who added it can edit/delete, and only before it's bought
+    //(once someone buys it, it's theirs to uncheck, so the adder can't remove it from under them)
+    val canEdit = item.addedByUid == myUid && !item.bought
 
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Checkbox(checked = item.bought, onCheckedChange = { onToggleBought(item) }, enabled = canToggle)
@@ -204,8 +215,6 @@ private fun GroceryRow(
         }
         if (canEdit) {
             IconButton({ onEdit(item) }) { Icon(Icons.Default.Edit, contentDescription = "Edit ${item.description}") }
-        }
-        if (isMine) {
             IconButton({ onDelete(item) }) { Icon(Icons.Default.Delete, contentDescription = "Delete ${item.description}") }
         }
     }
