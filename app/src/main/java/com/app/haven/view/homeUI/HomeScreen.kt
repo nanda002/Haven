@@ -13,6 +13,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.viewmodel.home.HomeBalanceViewModel
 import com.app.haven.viewmodel.home.HomeViewModel
 import com.app.haven.viewmodel.home.HomeChoresViewModel
+import com.app.haven.viewmodel.home.HomeGroceryViewModel
 
 @Composable
 fun HomeScreen(
@@ -22,6 +23,7 @@ fun HomeScreen(
     onOpenHouseholdDetails: () -> Unit,
     onOpenLedger: () -> Unit,
     onOpenChores: () -> Unit,
+    onOpenGrocery: () -> Unit,
     vm: HomeViewModel = viewModel()
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
@@ -64,6 +66,7 @@ fun HomeScreen(
                 if (householdId != null && myUid != null) {
                     BalanceSection(householdId, myUid, onOpenLedger)
                     ChoresSection(householdId, myUid, onOpenChores)
+                    GrocerySection(householdId, myUid, onOpenGrocery)
                 }
             }
         }
@@ -92,4 +95,15 @@ private fun ChoresSection(
 ) {
     val due by choresVm.dueChores.collectAsStateWithLifecycle()
     HomeChoresCard(due, onClick = onOpenChores)
+}
+
+@Composable
+private fun GrocerySection(
+    householdId: String,
+    myUid: String,
+    onOpenLedger: () -> Unit,
+    groceryVm: HomeGroceryViewModel = viewModel(factory = HomeGroceryViewModel.factory(householdId, myUid))
+) {
+    val state by groceryVm.unboughtItems.collectAsStateWithLifecycle()
+    HomeGroceryCard(state, onClick = onOpenLedger)
 }

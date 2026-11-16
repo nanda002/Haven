@@ -7,6 +7,8 @@ import com.app.haven.actions.ExpenseActions
 import com.app.haven.actions.ExpenseDraftActions
 import com.app.haven.actions.ExpenseDraftRepository
 import com.app.haven.actions.ExpenseRepository
+import com.app.haven.actions.GroceryItemActions
+import com.app.haven.actions.GroceryItemRepository
 import com.app.haven.actions.HouseholdActions
 import com.app.haven.actions.SettleExpenseActions
 import com.app.haven.actions.SettleExpenseRepository
@@ -38,6 +40,7 @@ class AppContainer(context: Context) {
     val expenseRepository: ExpenseActions = ExpenseRepository(localDb.expenseDao(), firestore)
     val settlementRepository: SettleExpenseActions = SettleExpenseRepository(localDb.settlementDao(), firestore)
     val expenseDraftRepository: ExpenseDraftActions = ExpenseDraftRepository(localDb.expenseDraftDao())
+    val groceryItemRepository: GroceryItemActions = GroceryItemRepository(firestore)
 
     // on logout: remove the household's local copy and unsaved drafts, so the next user on this phone doesn't see them
     suspend fun clearLocalData() {
