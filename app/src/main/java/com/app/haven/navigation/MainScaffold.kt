@@ -95,7 +95,8 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
                     onOpenProfile = { nav.navigate("profile") },
                     onOpenHouseholdDetails = { nav.navigate("household_details") },
                     onOpenLedger = { goToTab("ledger_tab") },
-                    onOpenChores = { goToTab("chores_tab") })
+                    onOpenChores = { goToTab("chores_tab") },
+                    onOpenGrocery = { goToTab("grocery_tab") })
             }
             navigation(startDestination = "ledger", route = "ledger_tab") {
                 composable("ledger") {

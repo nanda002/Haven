@@ -189,7 +189,7 @@ fun MainGroceryItemScreen(
 }
 
 @Composable
-private fun GroceryRow(
+fun GroceryRow(
     item: GroceryItem,
     myUid: String,
     onToggleBought: (GroceryItem) -> Unit,
