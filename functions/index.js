@@ -23,19 +23,14 @@ const {getMessaging} = require("firebase-admin/messaging");
 // server access to the project; no key file needed when running on Firebase
 initializeApp();
 
-// us-central1 matches the Firestore location (nam5);
-// maxInstances caps how many copies run at once, to keep costs predictable
 setGlobalOptions({region: "us-central1", maxInstances: 10});
 
-// error codes meaning the phone's token is gone (app uninstalled, data cleared)
 const DEAD_TOKEN_ERRORS = [
   "messaging/registration-token-not-registered",
   "messaging/invalid-registration-token",
 ];
 
-// 1234 -> "$12.34"
 const money = (cents) => `$${(cents / 100).toFixed(2)}`;
-
 
 /**
  * Shared notification logic for creating and updating expenses.
@@ -68,11 +63,14 @@ async function sendExpenseNotifications({
 
   // Build one message per device
   for (const userDoc of userDocs) {
+    // Getting the user token for each user
     const tokens = userDoc.get("fcmTokens") || [];
+    // Checking if user is part of shares
     const hasShare = Object.prototype.hasOwnProperty.call(
         shares,
         userDoc.id,
     );
+    // Creating the body of the notification
     const body = hasShare ?
       `Your share: ${money(shares[userDoc.id])} of ${total}` :
       `Your share in this expense was removed.`;
