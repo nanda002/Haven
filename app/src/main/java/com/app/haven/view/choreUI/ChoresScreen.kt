@@ -26,6 +26,7 @@ import com.app.haven.domain.chore.ChoreCategory
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.runtime.saveable.rememberSaveable
+import com.app.haven.domain.chore.upNextLabel
 
 @Composable
 fun ChoresScreen(
@@ -169,6 +170,13 @@ private fun ChoreRow(
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 lastDone?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                chore.upNextLabel()?.let {
                     Text(
                         it,
                         style = MaterialTheme.typography.bodySmall,

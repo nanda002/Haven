@@ -11,6 +11,8 @@ import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import com.app.haven.domain.chore.resolveOccurrence
+import com.app.haven.domain.chore.todayEpochDay
 
 interface ChoreActions {
     fun getChores(householdId: String): Flow<List<Chore>>
@@ -33,8 +35,9 @@ class ChoreRepository(
                     close(error)
                     return@addSnapshotListener
                 }
+                val today = todayEpochDay()
                 val list = snapshot?.toObjects(ChoreDoc::class.java)
-                    ?.map { it.toDomain() } ?: emptyList()
+                    ?.map { resolveOccurrence(it.toDomain(), today) } ?: emptyList()
                 trySend(list)
             }
         awaitClose { registration.remove() }
@@ -65,7 +68,9 @@ class ChoreRepository(
                     "completedByName" to chore.completedByName,
                     "lastCompletedEpochDay" to chore.lastCompletedEpochDay,
                     "category" to chore.category,
-                    "notes" to chore.notes
+                    "notes" to chore.notes,
+                    "nextAssigneeUid" to chore.nextAssigneeUid,
+                    "nextAssigneeName" to chore.nextAssigneeName
                 )
             ).addOnFailureListener { Log.e("Chore Repo", "update failed on the server") }
             Unit

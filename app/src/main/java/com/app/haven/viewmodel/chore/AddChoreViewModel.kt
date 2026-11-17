@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.app.haven.domain.chore.ChoreCategory
 import com.app.haven.domain.chore.normalizeNotes
+import com.app.haven.domain.chore.resolveEndEpochDay
 
 // Used for both "Add chore" (choreId = null) and "Edit chore"
 class AddChoreViewModel(
@@ -73,16 +74,14 @@ class AddChoreViewModel(
     ) {
         validateChore(title, assignee?.uid, category)?.let { _error.value = it; return }
         val base = _existing.value
-        val end = when {
-            repeatDays <= 0 -> 0L
-            durationWeeks == null -> base?.endEpochDay ?: 0L
-            else -> endEpochDayFor(dueEpochDay, repeatDays, durationWeeks)
-        }
+        val end = resolveEndEpochDay(dueEpochDay, repeatDays, durationWeeks, base?.endEpochDay ?: 0L)
         val chore = Chore(
             id = base?.id ?: "",
             title = title.trim(),
             category = ChoreCategory.fromKey(category).key,
             notes = normalizeNotes(notes),
+            nextAssigneeUid = base?.nextAssigneeUid ?: "",
+            nextAssigneeName = base?.nextAssigneeName ?: "",
             assigneeUid = assignee!!.uid,
             assigneeName = assignee.displayName,
             dueEpochDay = dueEpochDay,

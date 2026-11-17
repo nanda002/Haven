@@ -38,7 +38,7 @@ class ChoresViewModel(
 
     // current members only: these are who the round robin rotates through
     private val members: StateFlow<List<Assignee>> = households.observeMembers(householdId)
-        .map { list -> list.map { Assignee(it.uid, it.displayName) } }
+        .map { list -> list.map { Assignee(it.uid, it.displayName, it.joinedAt?.time ?: Long.MAX_VALUE) } }
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 

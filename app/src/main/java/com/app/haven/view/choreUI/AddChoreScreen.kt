@@ -22,8 +22,11 @@ import com.app.haven.domain.chore.CATEGORY_REQUIRED_MESSAGE
 import androidx.compose.ui.text.style.TextAlign
 import com.app.haven.domain.chore.CHORE_NOTES_MAX
 import com.app.haven.domain.chore.formatFullEpochDay
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.app.haven.domain.chore.Recurrence
+import com.app.haven.domain.chore.resolveEndEpochDay
+import com.app.haven.domain.chore.schedulePreview
 
-private val repeatOptions = listOf("Once" to 0, "Daily" to 1, "Weekly" to 7)
 private val durationOptions = listOf("Forever" to 0, "2 weeks" to 2, "4 weeks" to 4, "8 weeks" to 8)
 
 // Add form (choreId = null) and edit form (choreId = an existing chore) share this screen
@@ -51,7 +54,7 @@ fun AddChoreScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, onDone: () -> Unit) {
     val members by vm.members.collectAsStateWithLifecycle()
@@ -144,25 +147,34 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
         )
 
         Text("Repeat", style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            repeatOptions.forEach { (label, days) ->
-                FilterChip(selected = repeatDays == days, onClick = { repeatDays = days }, label = { Text(label) })
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Recurrence.entries.forEach { option ->
+                FilterChip(
+                    selected = repeatDays == option.repeatDays,
+                    onClick = { repeatDays = option.repeatDays },
+                    label = { Text(option.label) }
+                )
+            }
+            // a saved chore with some other value: show it selected and leave it unchanged
+            if (Recurrence.fromRepeatDays(repeatDays) == null) {
+                FilterChip(selected = true, onClick = {}, label = { Text("Every $repeatDays days") })
             }
         }
 
         if (repeatDays > 0) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Rotate between roommates", style = MaterialTheme.typography.labelLarge)
+                    Text("Take turns between roommates", style = MaterialTheme.typography.labelLarge)
                     Text(
-                        if (rotate) "Each time it's done, it moves to the next roommate."
-                        else "Stays with ${assignee?.displayName ?: "the same person"} every time.",
+                        if (rotate) "Roommates take turns according to the chore's schedule. Each scheduled date goes to the next person in the household order."
+                        else "Roommates would take turns according to the chore's schedule. Right now it stays with ${assignee?.displayName ?: "the same person"} every time.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Switch(checked = rotate, onCheckedChange = { rotate = it })
             }
+
 
             Text("Keep repeating for", style = MaterialTheme.typography.labelLarge)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -194,6 +206,25 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
         )
 
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                schedulePreview(
+                    startEpochDay = dueDay,
+                    repeatDays = repeatDays,
+                    rotate = rotate,
+                    assigneeName = assignee?.displayName,
+                    endEpochDay = resolveEndEpochDay(dueDay, repeatDays, durationWeeks, existing?.endEpochDay ?: 0L)
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(12.dp)
+            )
+        }
 
         Button(
             onClick = { vm.save(title, categoryKey, assignee, dueDay, repeatDays, rotate, durationWeeks, notes, onDone) },

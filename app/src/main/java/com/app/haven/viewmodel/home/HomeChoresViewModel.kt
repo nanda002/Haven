@@ -28,7 +28,7 @@ class HomeChoresViewModel(
                 .sortedBy { it.dueEpochDay }
         }
         .catch { emit(emptyList()) }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     companion object {
         fun factory(householdId: String, myUid: String) = viewModelFactory {

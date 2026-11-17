@@ -19,10 +19,12 @@ data class Chore(
     val completedByName: String? = null,   // stored so it still reads right after a member leaves
     val lastCompletedEpochDay: Long = 0L,
     val category: String = "other",         // stable key, see ChoreCategory
-    val notes: String = ""
+    val notes: String = "",
+    val nextAssigneeUid: String = "",   // set when a repeating occurrence is completed: who gets the next scheduled date
+    val nextAssigneeName: String = ""   // blank = nothing scheduled after this one (one-off or final occurrence)
 )
 
-data class Assignee(val uid: String, val name: String)
+data class Assignee(val uid: String, val name: String, val joinedAtMillis: Long = Long.MAX_VALUE)
 
 // Stored in Firestore as `key`. Never store or rename the label, keys must stay stable.
 enum class ChoreCategory(val key: String, val label: String) {
@@ -38,6 +40,19 @@ enum class ChoreCategory(val key: String, val label: String) {
         // null, blank or unknown key -> OTHER (old docs, newer app versions)
         fun fromKey(key: String?): ChoreCategory = entries.firstOrNull { it.key == key } ?: OTHER
         fun isValid(key: String?): Boolean = entries.any { it.key == key }
+    }
+}
+
+// The only recurrence choices on the form. repeatDays is what gets stored.
+enum class Recurrence(val repeatDays: Int, val label: String) {
+    ONCE(0, "Once"),
+    DAILY(1, "Daily"),
+    WEEKLY(7, "Weekly"),
+    EVERY_2_WEEKS(14, "Every 2 weeks");
+
+    companion object {
+        // null = a value that isn't one of the four (older or hand-edited data)
+        fun fromRepeatDays(days: Int): Recurrence? = entries.firstOrNull { it.repeatDays == days }
     }
 }
 
@@ -92,10 +107,11 @@ fun Chore.dueLabel(today: Long): String {
     }
 }
 
-fun repeatLabel(repeatDays: Int): String? = when (repeatDays) {
-    0 -> null
-    1 -> "Repeats daily"
-    7 -> "Repeats weekly"
+fun repeatLabel(repeatDays: Int): String? = when {
+    repeatDays <= 0 -> null
+    repeatDays == 1 -> "Repeats daily"
+    repeatDays == 7 -> "Repeats weekly"
+    repeatDays % 7 == 0 -> "Repeats every ${repeatDays / 7} weeks"   // 14 -> "every 2 weeks"
     else -> "Repeats every $repeatDays days"
 }
 
@@ -111,50 +127,121 @@ fun Chore.lastDoneLabel(today: Long): String? {
     return (if (done) "Done by " else "Last done by ") + "$by $whenText"
 }
 
-// ROUND ROBIN: current person (sorted by uid), next person, wrap around.
-// If the current person left, start from the top.
-fun nextAssignee(members: List<Assignee>, currentUid: String?): Assignee? {
+// STABLE ORDER: when each roommate joined the household (joinedAt), uid only as a tie-break.
+// Not alphabetical, not random. Someone who leaves drops out and the rest keep their relative
+// order. Someone new joins at the end of the cycle.
+fun stableOrder(members: List<Assignee>): List<Assignee> =
+    members.sortedWith(compareBy<Assignee> { it.joinedAtMillis }.thenBy { it.uid })
+
+// The roommate after `currentUid` in the stable order, wrapping around.
+// If currentUid isn't an active member, count from `fallbackUid`. If that is gone too, start at the top.
+fun nextAssignee(members: List<Assignee>, currentUid: String?, fallbackUid: String? = null): Assignee? {
     if (members.isEmpty()) return null
-    val sorted = members.sortedBy { it.uid }
-    val i = sorted.indexOfFirst { it.uid == currentUid }
-    return if (i == -1) sorted.first() else sorted[(i + 1) % sorted.size]
+    val order = stableOrder(members)
+    var i = order.indexOfFirst { it.uid == currentUid }
+    if (i == -1) i = order.indexOfFirst { it.uid == fallbackUid }
+    return if (i == -1) order.first() else order[(i + 1) % order.size]
 }
 
-fun nextDueDay(dueEpochDay: Long, repeatDays: Int, today: Long): Long {
+// ANCHORED to the schedule: previous scheduled date + interval.
+// The completion date is never used, so finishing late or early never shifts the schedule.
+fun nextDueDay(dueEpochDay: Long, repeatDays: Int): Long {
     require(repeatDays > 0) { "Chore doesn't repeat" }
-    var next = dueEpochDay + repeatDays
-    while (next < today) next += repeatDays
-    return next
+    return dueEpochDay + repeatDays
 }
-
 // "Repeat for N weeks" -> last day a repeat may be due. 0 weeks (or a one-off) = no end.
 fun endEpochDayFor(dueEpochDay: Long, repeatDays: Int, weeks: Int): Long =
     if (repeatDays <= 0 || weeks <= 0) 0L else dueEpochDay + weeks * 7L
 
+
+// The end date a chore will be saved with. durationWeeks == null = keep the existing end date.
+fun resolveEndEpochDay(dueEpochDay: Long, repeatDays: Int, durationWeeks: Int?, existingEnd: Long): Long = when {
+    repeatDays <= 0 -> 0L
+    durationWeeks == null -> existingEnd
+    else -> endEpochDayFor(dueEpochDay, repeatDays, durationWeeks)
+}
+
+fun cadenceText(repeatDays: Int): String = when {
+    repeatDays == 1 -> "every day"
+    repeatDays == 7 -> "every week"
+    repeatDays > 0 && repeatDays % 7 == 0 -> "every ${repeatDays / 7} weeks"
+    else -> "every $repeatDays days"
+}
+
+// Plain-English summary shown under the form
+fun schedulePreview(
+    startEpochDay: Long,
+    repeatDays: Int,
+    rotate: Boolean,
+    assigneeName: String?,
+    endEpochDay: Long
+): String {
+    val start = formatFullEpochDay(startEpochDay)
+    if (repeatDays <= 0) return "Happens once, on $start."
+    val who = if (rotate) "with roommates taking turns in order"
+    else "staying with ${assigneeName ?: "the same person"} each time"
+    val end = if (endEpochDay > 0L) "Runs until ${formatFullEpochDay(endEpochDay)}."
+    else "No end date, it keeps going until you delete it."
+    return "Starts on $start and repeats ${cadenceText(repeatDays)}, $who. $end"
+}
+
 fun completeChore(chore: Chore, members: List<Assignee>, completedBy: Assignee, today: Long): Chore {
-    val stamped = chore.copy(
+    // who actually did it is stored separately from who it was assigned to
+    val finished = chore.copy(
+        done = true,
         completedByUid = completedBy.uid,
         completedByName = completedBy.name,
-        lastCompletedEpochDay = today
+        lastCompletedEpochDay = today,
+        nextAssigneeUid = "",
+        nextAssigneeName = ""
     )
-    if (chore.repeatDays <= 0) return stamped.copy(done = true)
+    if (chore.repeatDays <= 0) return finished
 
-    val next = nextDueDay(chore.dueEpochDay, chore.repeatDays, today)
-    // the run is over: the next repeat would land after the end date
-    if (chore.endEpochDay > 0L && next > chore.endEpochDay) return stamped.copy(done = true)
+    // final allowed occurrence (one ON the end date is allowed): retire, nothing is scheduled after it
+    val nextDue = nextDueDay(chore.dueEpochDay, chore.repeatDays)
+    if (chore.endEpochDay > 0L && nextDue > chore.endEpochDay) return finished
 
-    val assignee = if (chore.rotate) nextAssignee(members, chore.assigneeUid) else null
-    return stamped.copy(
-        assigneeUid = assignee?.uid ?: chore.assigneeUid,
-        assigneeName = assignee?.name ?: chore.assigneeName,
-        dueEpochDay = next,
-        done = false
+    // The assignee and the due date stay as they are: this occurrence belongs to its assignee until
+    // its date passes. The next turn goes to the roommate after whoever actually did it.
+    val next = if (chore.rotate) nextAssignee(members, completedBy.uid, fallbackUid = chore.assigneeUid) else null
+    return finished.copy(
+        nextAssigneeUid = next?.uid ?: chore.assigneeUid,
+        nextAssigneeName = next?.name ?: chore.assigneeName
     )
+}
+
+// A completed repeating occurrence stays visible (done, still with its assignee) until its scheduled
+// date has passed. Then the next one appears: previous date + interval, the next person, not done.
+// It never skips ahead: if that next date is already past, it simply shows as overdue.
+// Not applied when the end date would be passed (the chore is retired).
+fun resolveOccurrence(chore: Chore, today: Long): Chore {
+    if (!chore.done || chore.repeatDays <= 0 || chore.nextAssigneeUid.isBlank()) return chore
+    if (today <= chore.dueEpochDay) return chore
+    val nextDue = nextDueDay(chore.dueEpochDay, chore.repeatDays)
+    if (chore.endEpochDay > 0L && nextDue > chore.endEpochDay) return chore
+    val who = if (chore.rotate) Assignee(chore.nextAssigneeUid, chore.nextAssigneeName)
+    else Assignee(chore.assigneeUid, chore.assigneeName)
+    return chore.copy(
+        assigneeUid = who.uid,
+        assigneeName = who.name,
+        dueEpochDay = nextDue,
+        done = false,
+        nextAssigneeUid = "",
+        nextAssigneeName = ""
+    )
+}
+
+// "Next: Ben, Wed, Nov 25" on a finished repeating occurrence
+fun Chore.upNextLabel(): String? {
+    if (!done || repeatDays <= 0 || nextAssigneeUid.isBlank()) return null
+    val who = if (rotate) nextAssigneeName else assigneeName
+    return "Next: $who, ${formatEpochDay(nextDueDay(dueEpochDay, repeatDays))}"
 }
 
 // un-ticking a finished chore
 fun Chore.reopen(): Chore = copy(
-    done = false, completedByUid = null, completedByName = null, lastCompletedEpochDay = 0L
+    done = false, completedByUid = null, completedByName = null, lastCompletedEpochDay = 0L,
+    nextAssigneeUid = "", nextAssigneeName = ""
 )
 
 fun validateChore(title: String, assigneeUid: String?, category: String?): String? = when {
