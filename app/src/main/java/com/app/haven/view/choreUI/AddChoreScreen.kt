@@ -19,6 +19,9 @@ import com.app.haven.domain.chore.todayEpochDay
 import com.app.haven.view.common.PageHeader
 import com.app.haven.viewmodel.chore.AddChoreViewModel
 import com.app.haven.domain.chore.CATEGORY_REQUIRED_MESSAGE
+import androidx.compose.ui.text.style.TextAlign
+import com.app.haven.domain.chore.CHORE_NOTES_MAX
+import com.app.haven.domain.chore.formatFullEpochDay
 
 private val repeatOptions = listOf("Once" to 0, "Daily" to 1, "Weekly" to 7)
 private val durationOptions = listOf("Forever" to 0, "2 weeks" to 2, "4 weeks" to 4, "8 weeks" to 8)
@@ -53,14 +56,18 @@ fun AddChoreScreen(
 private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, onDone: () -> Unit) {
     val members by vm.members.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
-    val today = remember { todayEpochDay() }
+    val today = rememberTodayEpochDay()
     val key = existing?.id
 
     var title by rememberSaveable(key) { mutableStateOf(existing?.title ?: "") }
     // null on a new chore = nothing selected yet (required). Edit = the chore's stored category.
     var categoryKey by rememberSaveable(key) { mutableStateOf<String?>(existing?.category) }
+    var notes by rememberSaveable(key) { mutableStateOf(existing?.notes ?: "") }
     var assigneeUid by rememberSaveable(key) { mutableStateOf(existing?.assigneeUid) }
-    var dueDay by rememberSaveable(key) { mutableStateOf(existing?.dueEpochDay ?: today) }
+    // Add: "Today" by default and follows the clock. Edit: the saved date, fixed.
+    var dueOffset by rememberSaveable(key) { mutableStateOf<Int?>(if (existing == null) 0 else null) }
+    var fixedDueDay by rememberSaveable(key) { mutableStateOf(existing?.dueEpochDay ?: today) }
+    val dueDay: Long = dueOffset?.let { today + it } ?: fixedDueDay
     var repeatDays by rememberSaveable(key) { mutableStateOf(existing?.repeatDays ?: 0) }
     var rotate by rememberSaveable(key) { mutableStateOf(existing?.rotate ?: true) }
     // null while editing = keep the current end date untouched
@@ -79,7 +86,10 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
             onDismissRequest = { showPicker = false },
             confirmButton = {
                 TextButton({
-                    pickerState.selectedDateMillis?.let { dueDay = it / 86_400_000L }
+                    pickerState.selectedDateMillis?.let {
+                        fixedDueDay = it / 86_400_000L   // UTC midnight millis = the calendar date picked
+                        dueOffset = null
+                    }
                     showPicker = false
                 }) { Text("OK") }
             },
@@ -117,16 +127,21 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
             }
         }
 
-        Text("Due", style = MaterialTheme.typography.labelLarge)
+        Text("When should this begin?", style = MaterialTheme.typography.labelLarge)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = dueDay == today, onClick = { dueDay = today }, label = { Text("Today") })
-            FilterChip(selected = dueDay == today + 1, onClick = { dueDay = today + 1 }, label = { Text("Tomorrow") })
+            FilterChip(selected = dueDay == today, onClick = { dueOffset = 0 }, label = { Text("Today") })
+            FilterChip(selected = dueDay == today + 1, onClick = { dueOffset = 1 }, label = { Text("Tomorrow") })
             FilterChip(
                 selected = dueDay != today && dueDay != today + 1,
                 onClick = { showPicker = true },
-                label = { Text(if (dueDay != today && dueDay != today + 1) formatEpochDay(dueDay) else "Pick a date") }
+                label = { Text("Choose date") }
             )
         }
+        Text(
+            formatFullEpochDay(dueDay),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         Text("Repeat", style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -165,10 +180,23 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
             }
         }
 
+        OutlinedTextField(
+            value = notes,
+            onValueChange = { notes = it.take(CHORE_NOTES_MAX) },
+            label = { Text("Notes (optional)") },
+            placeholder = { Text("Add instructions or details about this chore...") },
+            supportingText = {
+                Text("${notes.length}/$CHORE_NOTES_MAX", Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+            },
+            minLines = 3,
+            maxLines = 6,
+            modifier = Modifier.fillMaxWidth()
+        )
+
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 
         Button(
-            onClick = { vm.save(title, categoryKey, assignee, dueDay, repeatDays, rotate, durationWeeks, onDone) },modifier = Modifier.fillMaxWidth()
-        ) { Text(if (existing == null) "Save chore" else "Save changes") }
+            onClick = { vm.save(title, categoryKey, assignee, dueDay, repeatDays, rotate, durationWeeks, notes, onDone) },
+        ){ Text(if (existing == null) "Save chore" else "Save changes") }
     }
 }

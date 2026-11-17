@@ -64,7 +64,8 @@ class ChoreRepository(
                     "completedByUid" to chore.completedByUid,
                     "completedByName" to chore.completedByName,
                     "lastCompletedEpochDay" to chore.lastCompletedEpochDay,
-                    "category" to chore.category
+                    "category" to chore.category,
+                    "notes" to chore.notes
                 )
             ).addOnFailureListener { Log.e("Chore Repo", "update failed on the server") }
             Unit

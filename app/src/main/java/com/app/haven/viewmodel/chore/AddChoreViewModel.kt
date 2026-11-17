@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.app.haven.domain.chore.ChoreCategory
+import com.app.haven.domain.chore.normalizeNotes
 
 // Used for both "Add chore" (choreId = null) and "Edit chore"
 class AddChoreViewModel(
@@ -67,6 +68,7 @@ class AddChoreViewModel(
         repeatDays: Int,
         rotate: Boolean,
         durationWeeks: Int?,
+        notes: String,
         onDone: () -> Unit
     ) {
         validateChore(title, assignee?.uid, category)?.let { _error.value = it; return }
@@ -80,6 +82,7 @@ class AddChoreViewModel(
             id = base?.id ?: "",
             title = title.trim(),
             category = ChoreCategory.fromKey(category).key,
+            notes = normalizeNotes(notes),
             assigneeUid = assignee!!.uid,
             assigneeName = assignee.displayName,
             dueEpochDay = dueEpochDay,

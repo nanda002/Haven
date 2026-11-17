@@ -23,6 +23,9 @@ import com.app.haven.domain.chore.status
 import com.app.haven.viewmodel.chore.ChoresUiState
 import com.app.haven.viewmodel.chore.ChoresViewModel
 import com.app.haven.domain.chore.ChoreCategory
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.runtime.saveable.rememberSaveable
 
 @Composable
 fun ChoresScreen(
@@ -128,6 +131,7 @@ private fun ChoreRow(
     onToggle: () -> Unit,
     onDelete: () -> Unit
 ) {
+    var expanded by rememberSaveable(chore.id) { mutableStateOf(false) }
     val overdue = chore.status(today) == ChoreStatus.OVERDUE
     val subtitle = listOfNotNull(
         if (orphaned) "Needs a new assignee" else chore.assigneeName,
@@ -138,7 +142,7 @@ private fun ChoreRow(
     val category = ChoreCategory.fromKey(chore.category)
 
     ElevatedCard(
-        onClick = onEdit,
+        onClick = { expanded = !expanded },
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
             contentColor = MaterialTheme.colorScheme.onSurface
@@ -172,11 +176,29 @@ private fun ChoreRow(
                     )
                 }
             }
+            Icon(
+                if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                contentDescription = if (expanded) "Hide details" else "Show details",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Default.Delete, contentDescription = "Delete chore",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+        if (expanded) {
+            Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, bottom = 8.dp)) {
+                Text(
+                    if (chore.notes.isBlank()) "No notes" else chore.notes,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (chore.notes.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.onSurface
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onEdit) { Text("Edit") }
+                }
             }
         }
     }

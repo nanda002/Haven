@@ -19,7 +19,8 @@ data class Chore(
     val completedByUid: String? = null,
     val completedByName: String? = null,
     val lastCompletedEpochDay: Long = 0L,
-    val category: String = "other",   // missing in old docs -> default "other"
+    val category: String = "other",
+    val notes: String = "",
     @ServerTimestamp val createdAt: Date? = null
 )
 
@@ -28,7 +29,8 @@ fun Chore.toDomain() = DomainChore(
     dueEpochDay = dueEpochDay, repeatDays = repeatDays, rotate = rotate, endEpochDay = endEpochDay,
     done = done, completedByUid = completedByUid, completedByName = completedByName,
     lastCompletedEpochDay = lastCompletedEpochDay,
-    category = ChoreCategory.fromKey(category).key   // unknown key -> "other", never crashes
+    category = ChoreCategory.fromKey(category).key,   // unknown key -> "other", never crashes
+    notes = notes
 )
 
 fun DomainChore.toData() = Chore(
@@ -36,5 +38,6 @@ fun DomainChore.toData() = Chore(
     dueEpochDay = dueEpochDay, repeatDays = repeatDays, rotate = rotate, endEpochDay = endEpochDay,
     done = done, completedByUid = completedByUid, completedByName = completedByName,
     lastCompletedEpochDay = lastCompletedEpochDay,
-    category = category
+    category = category,
+    notes = notes
 )

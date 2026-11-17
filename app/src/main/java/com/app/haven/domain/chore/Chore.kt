@@ -18,7 +18,8 @@ data class Chore(
     val completedByUid: String? = null,
     val completedByName: String? = null,   // stored so it still reads right after a member leaves
     val lastCompletedEpochDay: Long = 0L,
-    val category: String = "other"         // stable key, see ChoreCategory
+    val category: String = "other",         // stable key, see ChoreCategory
+    val notes: String = ""
 )
 
 data class Assignee(val uid: String, val name: String)
@@ -41,6 +42,11 @@ enum class ChoreCategory(val key: String, val label: String) {
 }
 
 const val CATEGORY_REQUIRED_MESSAGE = "Pick a category"
+
+const val CHORE_NOTES_MAX = 300
+
+// trim, then hard-cap at the limit. Used before saving, so storage never exceeds it
+fun normalizeNotes(raw: String): String = raw.trim().take(CHORE_NOTES_MAX)
 enum class ChoreStatus { DONE, OVERDUE, DUE_TODAY, UPCOMING }
 
 fun todayEpochDay(nowMillis: Long = System.currentTimeMillis(), tz: TimeZone = TimeZone.getDefault()): Long =
@@ -51,6 +57,22 @@ fun formatEpochDay(epochDay: Long): String {
     val f = SimpleDateFormat("EEE, MMM d", Locale.getDefault())
     f.timeZone = TimeZone.getTimeZone("UTC")
     return f.format(Date(epochDay * 86_400_000L))
+}
+
+// Epoch days are calendar days, so format in UTC
+fun formatFullEpochDay(epochDay: Long, locale: Locale = Locale.getDefault()): String {
+    val f = SimpleDateFormat("EEEE, MMMM d, yyyy", locale)
+    f.timeZone = TimeZone.getTimeZone("UTC")
+    return f.format(Date(epochDay * 86_400_000L))
+}
+
+// time left until the next local midnight
+fun millisUntilNextLocalMidnight(
+    nowMillis: Long = System.currentTimeMillis(),
+    tz: TimeZone = TimeZone.getDefault()
+): Long {
+    val localNow = nowMillis + tz.getOffset(nowMillis)
+    return 86_400_000L - Math.floorMod(localNow, 86_400_000L)
 }
 
 fun Chore.status(today: Long): ChoreStatus = when {
