@@ -17,11 +17,30 @@ data class Chore(
     val done: Boolean = false,
     val completedByUid: String? = null,
     val completedByName: String? = null,   // stored so it still reads right after a member leaves
-    val lastCompletedEpochDay: Long = 0L
+    val lastCompletedEpochDay: Long = 0L,
+    val category: String = "other"         // stable key, see ChoreCategory
 )
 
 data class Assignee(val uid: String, val name: String)
 
+// Stored in Firestore as `key`. Never store or rename the label, keys must stay stable.
+enum class ChoreCategory(val key: String, val label: String) {
+    KITCHEN("kitchen", "Kitchen"),
+    BATHROOM("bathroom", "Bathroom"),
+    CLEANING("cleaning", "Cleaning"),
+    LAUNDRY("laundry", "Laundry"),
+    GROCERIES("groceries", "Groceries"),
+    PERSONAL("personal", "Personal"),
+    OTHER("other", "Other");
+
+    companion object {
+        // null, blank or unknown key -> OTHER (old docs, newer app versions)
+        fun fromKey(key: String?): ChoreCategory = entries.firstOrNull { it.key == key } ?: OTHER
+        fun isValid(key: String?): Boolean = entries.any { it.key == key }
+    }
+}
+
+const val CATEGORY_REQUIRED_MESSAGE = "Pick a category"
 enum class ChoreStatus { DONE, OVERDUE, DUE_TODAY, UPCOMING }
 
 fun todayEpochDay(nowMillis: Long = System.currentTimeMillis(), tz: TimeZone = TimeZone.getDefault()): Long =
@@ -116,8 +135,9 @@ fun Chore.reopen(): Chore = copy(
     done = false, completedByUid = null, completedByName = null, lastCompletedEpochDay = 0L
 )
 
-fun validateChore(title: String, assigneeUid: String?): String? = when {
+fun validateChore(title: String, assigneeUid: String?, category: String?): String? = when {
     title.isBlank() -> "Enter a chore name"
+    !ChoreCategory.isValid(category) -> CATEGORY_REQUIRED_MESSAGE
     assigneeUid.isNullOrBlank() -> "Pick who it's for"
     else -> null
 }

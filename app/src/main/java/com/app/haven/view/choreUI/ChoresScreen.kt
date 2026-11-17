@@ -22,6 +22,7 @@ import com.app.haven.domain.chore.repeatLabel
 import com.app.haven.domain.chore.status
 import com.app.haven.viewmodel.chore.ChoresUiState
 import com.app.haven.viewmodel.chore.ChoresViewModel
+import com.app.haven.domain.chore.ChoreCategory
 
 @Composable
 fun ChoresScreen(
@@ -134,6 +135,7 @@ private fun ChoreRow(
         repeatLabel(chore.repeatDays)
     ).joinToString(" · ")
     val lastDone = chore.lastDoneLabel(today)
+    val category = ChoreCategory.fromKey(chore.category)
 
     ElevatedCard(
         onClick = onEdit,
@@ -144,6 +146,12 @@ private fun ChoreRow(
     ) {
         Row(Modifier.fillMaxWidth().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = chore.done, onCheckedChange = { onToggle() })
+            Icon(
+                category.icon,
+                contentDescription = category.label,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(end = 12.dp)
+            )
             Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
                 Text(
                     chore.title,

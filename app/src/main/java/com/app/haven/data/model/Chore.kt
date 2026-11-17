@@ -3,6 +3,7 @@ package com.app.haven.data.model
 import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
+import com.app.haven.domain.chore.ChoreCategory
 import com.app.haven.domain.chore.Chore as DomainChore
 
 data class Chore(
@@ -18,6 +19,7 @@ data class Chore(
     val completedByUid: String? = null,
     val completedByName: String? = null,
     val lastCompletedEpochDay: Long = 0L,
+    val category: String = "other",   // missing in old docs -> default "other"
     @ServerTimestamp val createdAt: Date? = null
 )
 
@@ -25,12 +27,14 @@ fun Chore.toDomain() = DomainChore(
     id = id, title = title, assigneeUid = assigneeUid, assigneeName = assigneeName,
     dueEpochDay = dueEpochDay, repeatDays = repeatDays, rotate = rotate, endEpochDay = endEpochDay,
     done = done, completedByUid = completedByUid, completedByName = completedByName,
-    lastCompletedEpochDay = lastCompletedEpochDay
+    lastCompletedEpochDay = lastCompletedEpochDay,
+    category = ChoreCategory.fromKey(category).key   // unknown key -> "other", never crashes
 )
 
 fun DomainChore.toData() = Chore(
     title = title, assigneeUid = assigneeUid, assigneeName = assigneeName,
     dueEpochDay = dueEpochDay, repeatDays = repeatDays, rotate = rotate, endEpochDay = endEpochDay,
     done = done, completedByUid = completedByUid, completedByName = completedByName,
-    lastCompletedEpochDay = lastCompletedEpochDay
+    lastCompletedEpochDay = lastCompletedEpochDay,
+    category = category
 )

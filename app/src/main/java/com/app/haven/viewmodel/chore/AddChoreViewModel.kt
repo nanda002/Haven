@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.app.haven.domain.chore.ChoreCategory
 
 // Used for both "Add chore" (choreId = null) and "Edit chore"
 class AddChoreViewModel(
@@ -60,6 +61,7 @@ class AddChoreViewModel(
     // null = leave the existing end date alone (editing without touching that setting).
     fun save(
         title: String,
+        category: String?,
         assignee: Member?,
         dueEpochDay: Long,
         repeatDays: Int,
@@ -67,7 +69,7 @@ class AddChoreViewModel(
         durationWeeks: Int?,
         onDone: () -> Unit
     ) {
-        validateChore(title, assignee?.uid)?.let { _error.value = it; return }
+        validateChore(title, assignee?.uid, category)?.let { _error.value = it; return }
         val base = _existing.value
         val end = when {
             repeatDays <= 0 -> 0L
@@ -77,6 +79,7 @@ class AddChoreViewModel(
         val chore = Chore(
             id = base?.id ?: "",
             title = title.trim(),
+            category = ChoreCategory.fromKey(category).key,
             assigneeUid = assignee!!.uid,
             assigneeName = assignee.displayName,
             dueEpochDay = dueEpochDay,

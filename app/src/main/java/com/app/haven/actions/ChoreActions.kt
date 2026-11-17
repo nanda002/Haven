@@ -42,7 +42,7 @@ class ChoreRepository(
 
     override suspend fun addChore(householdId: String, chore: Chore): Result<Unit> =
         runCatching {
-            validateChore(chore.title, chore.assigneeUid)?.let { throw IllegalArgumentException(it) }
+            validateChore(chore.title, chore.assigneeUid, chore.category)?.let { throw IllegalArgumentException(it) }
             chores(householdId).add(chore.toData())
                 .addOnFailureListener { Log.e("Chore Repo", "add failed on the server") }
             Unit
@@ -63,7 +63,8 @@ class ChoreRepository(
                     "done" to chore.done,
                     "completedByUid" to chore.completedByUid,
                     "completedByName" to chore.completedByName,
-                    "lastCompletedEpochDay" to chore.lastCompletedEpochDay
+                    "lastCompletedEpochDay" to chore.lastCompletedEpochDay,
+                    "category" to chore.category
                 )
             ).addOnFailureListener { Log.e("Chore Repo", "update failed on the server") }
             Unit

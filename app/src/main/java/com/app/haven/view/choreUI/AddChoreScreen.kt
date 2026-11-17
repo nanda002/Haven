@@ -18,6 +18,7 @@ import com.app.haven.domain.chore.formatEpochDay
 import com.app.haven.domain.chore.todayEpochDay
 import com.app.haven.view.common.PageHeader
 import com.app.haven.viewmodel.chore.AddChoreViewModel
+import com.app.haven.domain.chore.CATEGORY_REQUIRED_MESSAGE
 
 private val repeatOptions = listOf("Once" to 0, "Daily" to 1, "Weekly" to 7)
 private val durationOptions = listOf("Forever" to 0, "2 weeks" to 2, "4 weeks" to 4, "8 weeks" to 8)
@@ -56,6 +57,8 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
     val key = existing?.id
 
     var title by rememberSaveable(key) { mutableStateOf(existing?.title ?: "") }
+    // null on a new chore = nothing selected yet (required). Edit = the chore's stored category.
+    var categoryKey by rememberSaveable(key) { mutableStateOf<String?>(existing?.category) }
     var assigneeUid by rememberSaveable(key) { mutableStateOf(existing?.assigneeUid) }
     var dueDay by rememberSaveable(key) { mutableStateOf(existing?.dueEpochDay ?: today) }
     var repeatDays by rememberSaveable(key) { mutableStateOf(existing?.repeatDays ?: 0) }
@@ -94,6 +97,14 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
             title, { title = it }, label = { Text("Chore name") },
             singleLine = true, modifier = Modifier.fillMaxWidth()
         )
+        Text(
+            "Category",
+            style = MaterialTheme.typography.labelLarge,
+            color = if (error == CATEGORY_REQUIRED_MESSAGE) MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.onSurface
+        )
+        CategoryPicker(selectedKey = categoryKey, onSelect = { categoryKey = it })
+
 
         Text("Assign to", style = MaterialTheme.typography.labelLarge)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -157,8 +168,7 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 
         Button(
-            onClick = { vm.save(title, assignee, dueDay, repeatDays, rotate, durationWeeks, onDone) },
-            modifier = Modifier.fillMaxWidth()
+            onClick = { vm.save(title, categoryKey, assignee, dueDay, repeatDays, rotate, durationWeeks, onDone) },modifier = Modifier.fillMaxWidth()
         ) { Text(if (existing == null) "Save chore" else "Save changes") }
     }
 }
