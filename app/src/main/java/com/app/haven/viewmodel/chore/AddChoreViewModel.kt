@@ -10,7 +10,6 @@ import com.app.haven.actions.friendlyMessage
 import com.app.haven.appContainer
 import com.app.haven.data.model.Member
 import com.app.haven.domain.chore.Chore
-import com.app.haven.domain.chore.endEpochDayFor
 import com.app.haven.domain.chore.validateChore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,6 +23,7 @@ import kotlinx.coroutines.launch
 import com.app.haven.domain.chore.ChoreCategory
 import com.app.haven.domain.chore.normalizeNotes
 import com.app.haven.domain.chore.resolveEndEpochDay
+import com.app.haven.domain.chore.validateEndDate
 
 // Used for both "Add chore" (choreId = null) and "Edit chore"
 class AddChoreViewModel(
@@ -68,13 +68,14 @@ class AddChoreViewModel(
         dueEpochDay: Long,
         repeatDays: Int,
         rotate: Boolean,
-        durationWeeks: Int?,
+        endEpochDay: Long,   // 0 = no end date
         notes: String,
         onDone: () -> Unit
     ) {
         validateChore(title, assignee?.uid, category)?.let { _error.value = it; return }
         val base = _existing.value
-        val end = resolveEndEpochDay(dueEpochDay, repeatDays, durationWeeks, base?.endEpochDay ?: 0L)
+        validateEndDate(dueEpochDay, repeatDays, endEpochDay)?.let { _error.value = it; return }
+        val end = resolveEndEpochDay(repeatDays, endEpochDay)
         val chore = Chore(
             id = base?.id ?: "",
             title = title.trim(),

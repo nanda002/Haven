@@ -58,6 +58,12 @@ enum class Recurrence(val repeatDays: Int, val label: String) {
 
 const val CATEGORY_REQUIRED_MESSAGE = "Pick a category"
 
+const val END_BEFORE_START_MESSAGE = "The end date can't be before the first scheduled date"
+
+// first = the chore's first (current) scheduled date. An end date ON that date is allowed.
+fun validateEndDate(firstEpochDay: Long, repeatDays: Int, endEpochDay: Long): String? =
+    if (repeatDays > 0 && endEpochDay > 0L && endEpochDay < firstEpochDay) END_BEFORE_START_MESSAGE else null
+
 const val CHORE_NOTES_MAX = 300
 
 // trim, then hard-cap at the limit. Used before saving, so storage never exceeds it
@@ -149,17 +155,11 @@ fun nextDueDay(dueEpochDay: Long, repeatDays: Int): Long {
     require(repeatDays > 0) { "Chore doesn't repeat" }
     return dueEpochDay + repeatDays
 }
-// "Repeat for N weeks" -> last day a repeat may be due. 0 weeks (or a one-off) = no end.
-fun endEpochDayFor(dueEpochDay: Long, repeatDays: Int, weeks: Int): Long =
-    if (repeatDays <= 0 || weeks <= 0) 0L else dueEpochDay + weeks * 7L
 
-
-// The end date a chore will be saved with. durationWeeks == null = keep the existing end date.
-fun resolveEndEpochDay(dueEpochDay: Long, repeatDays: Int, durationWeeks: Int?, existingEnd: Long): Long = when {
-    repeatDays <= 0 -> 0L
-    durationWeeks == null -> existingEnd
-    else -> endEpochDayFor(dueEpochDay, repeatDays, durationWeeks)
-}
+// What gets stored: 0 for a one-off or "No end date", otherwise the calendar date the user picked.
+// Not snapped to an occurrence: the last repeat is the last scheduled date on or before it.
+fun resolveEndEpochDay(repeatDays: Int, selectedEndEpochDay: Long): Long =
+    if (repeatDays <= 0 || selectedEndEpochDay <= 0L) 0L else selectedEndEpochDay
 
 fun cadenceText(repeatDays: Int): String = when {
     repeatDays == 1 -> "every day"

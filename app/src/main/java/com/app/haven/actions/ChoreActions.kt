@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import com.app.haven.domain.chore.resolveOccurrence
 import com.app.haven.domain.chore.todayEpochDay
+import com.app.haven.domain.chore.validateEndDate
 
 interface ChoreActions {
     fun getChores(householdId: String): Flow<List<Chore>>
@@ -46,6 +47,7 @@ class ChoreRepository(
     override suspend fun addChore(householdId: String, chore: Chore): Result<Unit> =
         runCatching {
             validateChore(chore.title, chore.assigneeUid, chore.category)?.let { throw IllegalArgumentException(it) }
+            validateEndDate(chore.dueEpochDay, chore.repeatDays, chore.endEpochDay)?.let { throw IllegalArgumentException(it) }
             chores(householdId).add(chore.toData())
                 .addOnFailureListener { Log.e("Chore Repo", "add failed on the server") }
             Unit

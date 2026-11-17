@@ -26,8 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import com.app.haven.domain.chore.Recurrence
 import com.app.haven.domain.chore.resolveEndEpochDay
 import com.app.haven.domain.chore.schedulePreview
-
-private val durationOptions = listOf("Forever" to 0, "2 weeks" to 2, "4 weeks" to 4, "8 weeks" to 8)
+import com.app.haven.domain.chore.END_BEFORE_START_MESSAGE
 
 // Add form (choreId = null) and edit form (choreId = an existing chore) share this screen
 @Composable
@@ -73,8 +72,10 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
     val dueDay: Long = dueOffset?.let { today + it } ?: fixedDueDay
     var repeatDays by rememberSaveable(key) { mutableStateOf(existing?.repeatDays ?: 0) }
     var rotate by rememberSaveable(key) { mutableStateOf(existing?.rotate ?: true) }
-    // null while editing = keep the current end date untouched
-    var durationWeeks by rememberSaveable(key) { mutableStateOf<Int?>(if (existing != null) null else 0) }
+
+    // 0 = no end date. Edit starts from the saved cutoff, so unrelated edits never reset it.
+    var endDay by rememberSaveable(key) { mutableStateOf(existing?.endEpochDay ?: 0L) }
+    var showEndPicker by rememberSaveable { mutableStateOf(false) }
     var showPicker by rememberSaveable { mutableStateOf(false) }
 
     // keep the saved assignee if they're still in the household, otherwise me, otherwise the first member
@@ -98,6 +99,27 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
             },
             dismissButton = { TextButton({ showPicker = false }) { Text("Cancel") } }
         ) { DatePicker(state = pickerState) }
+    }
+
+    if (showEndPicker) {
+        val endPickerState = rememberDatePickerState(
+            initialSelectedDateMillis = (if (endDay > 0L) endDay else dueDay) * 86_400_000L,
+            selectableDates = object : SelectableDates {
+                // dates before the first scheduled date can't be picked
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                    utcTimeMillis / 86_400_000L >= dueDay
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showEndPicker = false },
+            confirmButton = {
+                TextButton({
+                    endPickerState.selectedDateMillis?.let { endDay = it / 86_400_000L }
+                    showEndPicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton({ showEndPicker = false }) { Text("Cancel") } }
+        ) { DatePicker(state = endPickerState) }
     }
 
     Column(
@@ -176,19 +198,24 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
             }
 
 
-            Text("Keep repeating for", style = MaterialTheme.typography.labelLarge)
+            Text("When should this chore stop repeating?", style = MaterialTheme.typography.labelLarge)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                durationOptions.forEach { (label, weeks) ->
-                    FilterChip(selected = durationWeeks == weeks, onClick = { durationWeeks = weeks }, label = { Text(label) })
-                }
+                FilterChip(selected = endDay == 0L, onClick = { endDay = 0L }, label = { Text("No end date") })
+                FilterChip(selected = endDay > 0L, onClick = { showEndPicker = true }, label = { Text("Choose an end date") })
             }
-            if (durationWeeks == null && existing != null) {
+            if (endDay > 0L) {
                 Text(
-                    if (existing.endEpochDay > 0L) "Currently ends ${formatEpochDay(existing.endEpochDay)}"
-                    else "Currently repeats forever",
-                    style = MaterialTheme.typography.bodySmall,
+                    formatFullEpochDay(endDay),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (endDay < dueDay) {
+                    Text(
+                        "$END_BEFORE_START_MESSAGE (${formatFullEpochDay(dueDay)}).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
 
@@ -218,7 +245,7 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
                     repeatDays = repeatDays,
                     rotate = rotate,
                     assigneeName = assignee?.displayName,
-                    endEpochDay = resolveEndEpochDay(dueDay, repeatDays, durationWeeks, existing?.endEpochDay ?: 0L)
+                    endEpochDay = resolveEndEpochDay(repeatDays, endDay)
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -227,7 +254,7 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
         }
 
         Button(
-            onClick = { vm.save(title, categoryKey, assignee, dueDay, repeatDays, rotate, durationWeeks, notes, onDone) },
+            onClick = { vm.save(title, categoryKey, assignee, dueDay, repeatDays, rotate, endDay, notes, onDone) },
         ){ Text(if (existing == null) "Save chore" else "Save changes") }
     }
 }
