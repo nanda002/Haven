@@ -67,6 +67,7 @@ private fun ChoreForm(
 ) {
     val members by vm.members.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
+    val saving by vm.saving.collectAsStateWithLifecycle()
     val today = rememberTodayEpochDay()
     val isAdd = existing == null
 
@@ -94,10 +95,21 @@ private fun ChoreForm(
     // "Today" and "Tomorrow" follow the clock. A picked date stays fixed.
     val dueDay: Long = form.dueOffset?.let { today + it } ?: form.fixedDueDay
 
-    // the saved assignee if still in the household, otherwise me, otherwise the first member
-    val assignee: Member? = members.firstOrNull { it.uid == form.assigneeUid }
-        ?: members.firstOrNull { it.uid == myUid }
-        ?: members.firstOrNull()
+    val chosenMember: Member? = members.firstOrNull { it.uid == form.assigneeUid }
+
+    // Edit: the saved assignee has left the household. They stay on the chore (nobody else is
+    // swapped in) until the user deliberately picks a roommate.
+    val assigneeLeft = existing != null && members.isNotEmpty() &&
+            chosenMember == null && form.assigneeUid == existing.assigneeUid
+
+    val assignee: Member? = when {
+        chosenMember != null -> chosenMember
+        // edit, still on the saved assignee (also covers the moment before the member list loads)
+        existing != null && form.assigneeUid == existing.assigneeUid ->
+            Member(uid = existing.assigneeUid, displayName = existing.assigneeName, active = false)
+        // new chore: me by default, or the first roommate until the member list has loaded
+        else -> members.firstOrNull { it.uid == myUid } ?: members.firstOrNull()
+    }
 
     if (showPicker) {
         // the picker works in UTC midnight millis, which is exactly an epoch day
@@ -185,6 +197,13 @@ private fun ChoreForm(
                     Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (assigneeLeft && assignee != null) {
+                        FilterChip(
+                            selected = true,
+                            onClick = {},
+                            label = { Text("${assignee.displayName} (left)") }
+                        )
+                    }
                     members.forEach { m ->
                         FilterChip(
                             selected = assignee?.uid == m.uid,
@@ -193,6 +212,15 @@ private fun ChoreForm(
                         )
                     }
                 }
+
+                if (assigneeLeft && assignee != null) {
+                    Text(
+                        "${assignee.displayName} has left the household. Pick a roommate to take over, or save to keep it with ${assignee.displayName} for now.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
                 FieldLabel("When should this begin?")
                 CardRow {
                     ChoiceCard("Today", dueDay == today, { form.dueOffset = 0 }, Modifier.weight(1f).fillMaxHeight())
@@ -342,8 +370,9 @@ private fun ChoreForm(
                             form.repeatDays, form.rotate, form.endDay, form.notes, onDone
                         )
                     },
+                    enabled = !saving,
                     modifier = Modifier.fillMaxWidth().height(52.dp)
-                ) { Text(if (isAdd) "Save chore" else "Save changes") }
+                ) { Text(if (saving) "Saving..." else if (isAdd) "Save chore" else "Save changes") }
             }
         }
     }

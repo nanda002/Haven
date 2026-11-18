@@ -20,6 +20,8 @@ interface ChoreActions {
     suspend fun addChore(householdId: String, chore: Chore): Result<Unit>
     suspend fun updateChore(householdId: String, chore: Chore): Result<Unit>
     suspend fun deleteChore(householdId: String, choreId: String): Result<Unit>
+    // edit form only: writes just the fields the form edits, never the completion fields
+    suspend fun updateChoreDetails(householdId: String, chore: Chore, clearNext: Boolean = false): Result<Unit>
 }
 
 class ChoreRepository(
@@ -75,6 +77,30 @@ class ChoreRepository(
                     "nextAssigneeName" to chore.nextAssigneeName
                 )
             ).addOnFailureListener { Log.e("Chore Repo", "update failed on the server") }
+            Unit
+        }
+
+    override suspend fun updateChoreDetails(householdId: String, chore: Chore, clearNext: Boolean): Result<Unit> =
+        runCatching {
+            require(chore.id.isNotBlank()) { "Missing chore id" }
+            val fields = mutableMapOf<String, Any?>(
+                "title" to chore.title.trim(),
+                "category" to chore.category,
+                "notes" to chore.notes,
+                "assigneeUid" to chore.assigneeUid,
+                "assigneeName" to chore.assigneeName,
+                "dueEpochDay" to chore.dueEpochDay,
+                "repeatDays" to chore.repeatDays,
+                "rotate" to chore.rotate,
+                "endEpochDay" to chore.endEpochDay
+            )
+            // only when a shortened end date removes the next scheduled turn
+            if (clearNext) {
+                fields["nextAssigneeUid"] = ""
+                fields["nextAssigneeName"] = ""
+            }
+            chores(householdId).document(chore.id).update(fields)
+                .addOnFailureListener { Log.e("Chore Repo", "update failed on the server") }
             Unit
         }
 

@@ -59,6 +59,11 @@ class AddChoreViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // true while saving, and after a successful save until the screen closes,
+    // so repeated taps can't create duplicate chores
+    private val _saving = MutableStateFlow(false)
+    val saving: StateFlow<Boolean> = _saving.asStateFlow()
+
     // true after a successful save, so a last pending auto-save can't bring the draft back
     private var draftFinished = false
 
@@ -102,12 +107,12 @@ class AddChoreViewModel(
     ) {
         validateChore(title, assignee?.uid, category)?.let { _error.value = it; return }
         validateEndDate(dueEpochDay, repeatDays, endEpochDay)?.let { _error.value = it; return }
+        if (!_saving.compareAndSet(false, true)) return
         val base = _existing.value
         val end = resolveEndEpochDay(repeatDays, endEpochDay)
         // keep a stored next turn only if its date is still allowed by the (possibly new) end date,
         // otherwise a shortened end date would leave a stale "Next: ..." behind
-        val keepNext = base != null && repeatDays > 0 &&
-                isAllowedOccurrence(nextDueDay(dueEpochDay, repeatDays), end)
+        val keepNext = base != null && repeatDays > 0 && isAllowedOccurrence(nextDueDay(dueEpochDay, repeatDays), end)
         val chore = Chore(
             id = base?.id ?: "",
             title = title.trim(),
@@ -138,7 +143,10 @@ class AddChoreViewModel(
                     }
                     onDone()
                 }
-                .onFailure { _error.value = it.friendlyMessage() }
+                .onFailure {
+                    _saving.value = false   // allow another try, entered values are untouched
+                    _error.value = it.friendlyMessage()
+                }
         }
     }
 
