@@ -24,6 +24,9 @@ import com.app.haven.domain.chore.ChoreCategory
 import com.app.haven.domain.chore.normalizeNotes
 import com.app.haven.domain.chore.resolveEndEpochDay
 import com.app.haven.domain.chore.validateEndDate
+import com.app.haven.domain.chore.isAllowedOccurrence
+import com.app.haven.domain.chore.nextDueDay
+
 
 // Used for both "Add chore" (choreId = null) and "Edit chore"
 class AddChoreViewModel(
@@ -76,13 +79,16 @@ class AddChoreViewModel(
         val base = _existing.value
         validateEndDate(dueEpochDay, repeatDays, endEpochDay)?.let { _error.value = it; return }
         val end = resolveEndEpochDay(repeatDays, endEpochDay)
+        // keep a stored next turn only if its date is still allowed by the (possibly new) end date,
+        // otherwise a shortened end date would leave a stale "Next: ..." behind
+        val keepNext = base != null && repeatDays > 0 && isAllowedOccurrence(nextDueDay(dueEpochDay, repeatDays), end)
         val chore = Chore(
             id = base?.id ?: "",
             title = title.trim(),
             category = ChoreCategory.fromKey(category).key,
             notes = normalizeNotes(notes),
-            nextAssigneeUid = base?.nextAssigneeUid ?: "",
-            nextAssigneeName = base?.nextAssigneeName ?: "",
+            nextAssigneeUid = if (keepNext) base?.nextAssigneeUid.orEmpty() else "",
+            nextAssigneeName = if (keepNext) base?.nextAssigneeName.orEmpty() else "",
             assigneeUid = assignee!!.uid,
             assigneeName = assignee.displayName,
             dueEpochDay = dueEpochDay,

@@ -156,6 +156,15 @@ fun nextDueDay(dueEpochDay: Long, repeatDays: Int): Long {
     return dueEpochDay + repeatDays
 }
 
+// a scheduled date is allowed if it is on or before the end date (0 = no end date).
+// The only place that decides this. Completing, rolling over and saving all use it.
+fun isAllowedOccurrence(scheduledEpochDay: Long, endEpochDay: Long): Boolean =
+    endEpochDay <= 0L || scheduledEpochDay <= endEpochDay
+
+// the final allowed occurrence has been completed, so the recurring chore is retired.
+fun Chore.isRetired(): Boolean =
+    repeatDays > 0 && done && !isAllowedOccurrence(nextDueDay(dueEpochDay, repeatDays), endEpochDay)
+
 // What gets stored: 0 for a one-off or "No end date", otherwise the calendar date the user picked.
 // Not snapped to an occurrence: the last repeat is the last scheduled date on or before it.
 fun resolveEndEpochDay(repeatDays: Int, selectedEndEpochDay: Long): Long =
@@ -168,21 +177,29 @@ fun cadenceText(repeatDays: Int): String = when {
     else -> "every $repeatDays days"
 }
 
-// Plain-English summary shown under the form
+data class PreviewLine(val label: String, val value: String)
+
+// Rows for the live preview under the form. It only describes what the scheduling logic does:
+// dates are fixed by the schedule, and each scheduled date goes to the next roommate in order.
 fun schedulePreview(
     startEpochDay: Long,
     repeatDays: Int,
     rotate: Boolean,
     assigneeName: String?,
     endEpochDay: Long
-): String {
-    val start = formatFullEpochDay(startEpochDay)
-    if (repeatDays <= 0) return "Happens once, on $start."
-    val who = if (rotate) "with roommates taking turns in order"
-    else "staying with ${assigneeName ?: "the same person"} each time"
-    val end = if (endEpochDay > 0L) "Runs until ${formatFullEpochDay(endEpochDay)}."
-    else "No end date, it keeps going until you delete it."
-    return "Starts on $start and repeats ${cadenceText(repeatDays)}, $who. $end"
+): List<PreviewLine> {
+    val first = PreviewLine("First date", formatFullEpochDay(startEpochDay))
+    if (repeatDays <= 0) return listOf(PreviewLine("Repeats", "Once, no repeats"), first)
+    return listOf(
+        PreviewLine("Repeats", cadenceText(repeatDays).replaceFirstChar { it.uppercase() }),
+        first,
+        PreviewLine(
+            "Turns",
+            if (rotate) "Roommates take turns, one scheduled date each"
+            else "Stays with ${assigneeName ?: "the same person"}"
+        ),
+        PreviewLine("Ends", if (endEpochDay > 0L) formatFullEpochDay(endEpochDay) else "No end date")
+    )
 }
 
 fun completeChore(chore: Chore, members: List<Assignee>, completedBy: Assignee, today: Long): Chore {
@@ -197,9 +214,9 @@ fun completeChore(chore: Chore, members: List<Assignee>, completedBy: Assignee, 
     )
     if (chore.repeatDays <= 0) return finished
 
-    // final allowed occurrence (one ON the end date is allowed): retire, nothing is scheduled after it
+    // nothing after the cutoff is ever scheduled. This was the final allowed occurrence.
     val nextDue = nextDueDay(chore.dueEpochDay, chore.repeatDays)
-    if (chore.endEpochDay > 0L && nextDue > chore.endEpochDay) return finished
+    if (!isAllowedOccurrence(nextDue, chore.endEpochDay)) return finished
 
     // The assignee and the due date stay as they are: this occurrence belongs to its assignee until
     // its date passes. The next turn goes to the roommate after whoever actually did it.
@@ -218,7 +235,7 @@ fun resolveOccurrence(chore: Chore, today: Long): Chore {
     if (!chore.done || chore.repeatDays <= 0 || chore.nextAssigneeUid.isBlank()) return chore
     if (today <= chore.dueEpochDay) return chore
     val nextDue = nextDueDay(chore.dueEpochDay, chore.repeatDays)
-    if (chore.endEpochDay > 0L && nextDue > chore.endEpochDay) return chore
+    if (!isAllowedOccurrence(nextDue, chore.endEpochDay)) return chore
     val who = if (chore.rotate) Assignee(chore.nextAssigneeUid, chore.nextAssigneeName)
     else Assignee(chore.assigneeUid, chore.assigneeName)
     return chore.copy(
@@ -233,7 +250,9 @@ fun resolveOccurrence(chore: Chore, today: Long): Chore {
 
 // "Next: Ben, Wed, Nov 25" on a finished repeating occurrence
 fun Chore.upNextLabel(): String? {
-    if (!done || repeatDays <= 0 || nextAssigneeUid.isBlank()) return null
+    if (repeatDays <= 0 || !done) return null
+    if (isRetired()) return "Final repeat completed, nothing more scheduled"
+    if (nextAssigneeUid.isBlank()) return null
     val who = if (rotate) nextAssigneeName else assigneeName
     return "Next: $who, ${formatEpochDay(nextDueDay(dueEpochDay, repeatDays))}"
 }
