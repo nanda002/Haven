@@ -46,7 +46,13 @@ private val tabs = listOf(
 )
 
 @Composable
-fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
+fun MainScaffold(
+    onLogout: () -> Unit,
+    onLeftHousehold: () -> Unit,
+    //true after tapping an expense notification
+    openLedger: Boolean = false,
+    onLedgerOpened: () -> Unit = {}
+) {
     //object that remembers the back stack
     val nav = rememberNavController()
     val currentDest = nav.currentBackStackEntryAsState().value?.destination
@@ -64,6 +70,14 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
             popUpTo(nav.graph.findStartDestination().id) { saveState = false }
             launchSingleTop = true
             restoreState = false
+        }
+    }
+
+    //opened from an expense notification to show the ledger
+    LaunchedEffect(openLedger) {
+        if (openLedger) {
+            goToTab("ledger_tab")
+            onLedgerOpened()
         }
     }
 

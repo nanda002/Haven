@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.app.haven.appContainer
+import com.app.haven.actions.PushTokenActions
 import com.app.haven.actions.UserActions
 import com.app.haven.actions.friendlyMessage
 import kotlinx.coroutines.TimeoutCancellationException
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.seconds
 
 sealed interface SessionState {
@@ -28,7 +30,9 @@ sealed interface SessionState {
 class SessionViewModel(
     private val users: UserActions = UserActions(),
     //clears the phone's local Room copy on logout
-    private val clearLocalData: suspend () -> Unit = {}
+    private val clearLocalData: suspend () -> Unit = {},
+    //this phone's push token which saved once signed in, removed on logout
+    private val pushTokens: PushTokenActions? = null
 ) : ViewModel() {
     private val _state = MutableStateFlow<SessionState>(SessionState.Loading)
     val state: StateFlow<SessionState> = _state.asStateFlow()
@@ -47,6 +51,7 @@ class SessionViewModel(
                     users.loadUser()
                 }
                 Log.d("SessionViewModel", "refresh: user loaded, householdId = ${user?.householdId}")
+                if (user != null) launch { pushTokens?.saveToken() }
                 if (user?.householdId == null) SessionState.NeedsHousehold
                 else SessionState.InHousehold
             } catch (_: TimeoutCancellationException) {
@@ -60,12 +65,16 @@ class SessionViewModel(
     }
 
     fun logOut() {
-        users.logOut()
-        _state.value = SessionState.SignedOut
-        viewModelScope.launch { clearLocalData() }
+        viewModelScope.launch {
+            _state.value = SessionState.Loading
+            withTimeoutOrNull(5.seconds) { pushTokens?.removeToken() }
+            users.logOut()
+            _state.value = SessionState.SignedOut
+            clearLocalData()
+        }
     }
 
-    // after leaving a household: wipe the old household's local copy, then re-check where the user belongs
+    // after leaving a household, wipe the old household's local copy, then recheck where the user belongs
     fun onLeftHousehold() {
         viewModelScope.launch {
             clearLocalData()
@@ -77,7 +86,7 @@ class SessionViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val container = appContainer()
-                SessionViewModel(container.userActions, container::clearLocalData)
+                SessionViewModel(container.userActions, container::clearLocalData, container.pushTokenRepository)
             }
         }
     }

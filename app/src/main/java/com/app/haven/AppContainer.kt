@@ -10,6 +10,8 @@ import com.app.haven.actions.ExpenseRepository
 import com.app.haven.actions.GroceryItemActions
 import com.app.haven.actions.GroceryItemRepository
 import com.app.haven.actions.HouseholdActions
+import com.app.haven.actions.PushTokenActions
+import com.app.haven.actions.PushTokenRepository
 import com.app.haven.actions.SettleExpenseActions
 import com.app.haven.actions.SettleExpenseRepository
 import com.app.haven.actions.UserActions
@@ -41,6 +43,7 @@ class AppContainer(context: Context) {
     val settlementRepository: SettleExpenseActions = SettleExpenseRepository(localDb.settlementDao(), firestore)
     val expenseDraftRepository: ExpenseDraftActions = ExpenseDraftRepository(localDb.expenseDraftDao())
     val groceryItemRepository: GroceryItemActions = GroceryItemRepository(firestore)
+    val pushTokenRepository: PushTokenActions = PushTokenRepository(auth, firestore)
 
     // on logout: remove the household's local copy and unsaved drafts, so the next user on this phone doesn't see them
     suspend fun clearLocalData() {
@@ -50,6 +53,6 @@ class AppContainer(context: Context) {
     }
 }
 
-// lets a ViewModel factory reach the container
+//lets a ViewModel factory reach the container
 fun CreationExtras.appContainer(): AppContainer =
     (this[APPLICATION_KEY] as HavenApplication).container
