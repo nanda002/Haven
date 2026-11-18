@@ -11,6 +11,7 @@ import com.app.haven.appContainer
 import com.app.haven.domain.chore.Assignee
 import com.app.haven.domain.chore.Chore
 import com.app.haven.domain.chore.completeChore
+import com.app.haven.domain.chore.completionBlockedMessage
 import com.app.haven.domain.chore.reopen
 import com.app.haven.domain.chore.todayEpochDay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,11 +66,13 @@ class ChoresViewModel(
     fun onUndoShown() { _undo.value = null }
 
     fun onToggleDone(chore: Chore) {
+        val today = todayEpochDay()
         val updated = if (chore.done) {
             chore.reopen()
         } else {
+            completionBlockedMessage(chore, myUid, today)?.let { _error.value = it; return }
             val me = members.value.firstOrNull { it.uid == myUid } ?: Assignee(myUid, "Someone")
-            completeChore(chore, members.value, me, todayEpochDay())
+            completeChore(chore, members.value, me, today)
         }
         viewModelScope.launch {
             chores.updateChore(householdId, updated)

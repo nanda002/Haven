@@ -5,7 +5,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -189,12 +188,6 @@ private fun ChoreRow(
                 contentDescription = if (expanded) "Hide details" else "Show details",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete, contentDescription = "Delete chore",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
         if (expanded) {
             Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, bottom = 8.dp)) {
@@ -205,6 +198,9 @@ private fun ChoreRow(
                     else MaterialTheme.colorScheme.onSurface
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDelete) {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    }
                     TextButton(onClick = onEdit) { Text("Edit") }
                 }
             }

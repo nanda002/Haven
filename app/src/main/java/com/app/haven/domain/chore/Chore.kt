@@ -202,6 +202,14 @@ fun schedulePreview(
     )
 }
 
+// Assignee only until the due date has passed, then anyone in the household
+fun canComplete(chore: Chore, uid: String, today: Long): Boolean =
+    chore.assigneeUid == uid || chore.dueEpochDay < today
+
+fun completionBlockedMessage(chore: Chore, uid: String, today: Long): String? =
+    if (canComplete(chore, uid, today)) null
+    else "Only ${chore.assigneeName} can complete this until it's overdue"
+
 fun completeChore(chore: Chore, members: List<Assignee>, completedBy: Assignee, today: Long): Chore {
     // who actually did it is stored separately from who it was assigned to
     val finished = chore.copy(
