@@ -5,12 +5,20 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.app.haven.actions.ChoreActions
+import com.app.haven.actions.ChoreDraftActions
 import com.app.haven.actions.HouseholdActions
 import com.app.haven.actions.friendlyMessage
 import com.app.haven.appContainer
 import com.app.haven.data.model.Member
 import com.app.haven.domain.chore.Chore
+import com.app.haven.domain.chore.ChoreCategory
+import com.app.haven.domain.chore.ChoreDraft
+import com.app.haven.domain.chore.isAllowedOccurrence
+import com.app.haven.domain.chore.nextDueDay
+import com.app.haven.domain.chore.normalizeNotes
+import com.app.haven.domain.chore.resolveEndEpochDay
 import com.app.haven.domain.chore.validateChore
+import com.app.haven.domain.chore.validateEndDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,20 +28,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.app.haven.domain.chore.ChoreCategory
-import com.app.haven.domain.chore.normalizeNotes
-import com.app.haven.domain.chore.resolveEndEpochDay
-import com.app.haven.domain.chore.validateEndDate
-import com.app.haven.domain.chore.isAllowedOccurrence
-import com.app.haven.domain.chore.nextDueDay
 
-
-// Used for both "Add chore" (choreId = null) and "Edit chore"
+// Used for both "Add chore" (choreId = null) and "Edit chore".
+// Only the add form keeps a draft on the phone, same as the add-expense form.
 class AddChoreViewModel(
     private val chores: ChoreActions,
     households: HouseholdActions,
     private val householdId: String,
-    private val choreId: String?
+    private val choreId: String?,
+    private val drafts: ChoreDraftActions? = null
 ) : ViewModel() {
 
     val members: StateFlow<List<Member>> = households.observeMembers(householdId)
@@ -45,25 +48,47 @@ class AddChoreViewModel(
     private val _existing = MutableStateFlow<Chore?>(null)
     val existing: StateFlow<Chore?> = _existing.asStateFlow()
 
-    private val _loading = MutableStateFlow(choreId != null)
+    // add mode: the unsaved draft found on this phone, if there is one
+    private val _restoredDraft = MutableStateFlow<ChoreDraft?>(null)
+    val restoredDraft: StateFlow<ChoreDraft?> = _restoredDraft.asStateFlow()
+
+    // true until the chore (edit) or the saved draft (add) has been read
+    private val _loading = MutableStateFlow(true)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // true after a successful save, so a last pending auto-save can't bring the draft back
+    private var draftFinished = false
+
     init {
-        if (choreId != null) {
-            viewModelScope.launch {
+        viewModelScope.launch {
+            if (choreId != null) {
                 _existing.value = runCatching {
                     chores.getChores(householdId).first().firstOrNull { it.id == choreId }
                 }.getOrNull()
-                _loading.value = false
+            } else {
+                _restoredDraft.value = runCatching { drafts?.loadDraft(householdId) }.getOrNull()
             }
+            _loading.value = false
         }
     }
 
-    // durationWeeks: how long a repeating chore keeps going (0 = forever).
-    // null = leave the existing end date alone (editing without touching that setting).
+    // add mode only: called a moment after the user stops typing
+    fun autoSaveDraft(draft: ChoreDraft) {
+        if (choreId != null || drafts == null || draftFinished) return
+        viewModelScope.launch {
+            if (draft.isBlank()) drafts.deleteDraft(householdId) else drafts.saveDraft(householdId, draft)
+        }
+    }
+
+    // the Clear button: the form is reset by the screen, this removes the saved draft
+    fun clearDraft() {
+        viewModelScope.launch { drafts?.deleteDraft(householdId) }
+    }
+
+    // endEpochDay: the picked end date, 0 = no end date
     fun save(
         title: String,
         category: String?,
@@ -71,17 +96,18 @@ class AddChoreViewModel(
         dueEpochDay: Long,
         repeatDays: Int,
         rotate: Boolean,
-        endEpochDay: Long,   // 0 = no end date
+        endEpochDay: Long,
         notes: String,
         onDone: () -> Unit
     ) {
         validateChore(title, assignee?.uid, category)?.let { _error.value = it; return }
-        val base = _existing.value
         validateEndDate(dueEpochDay, repeatDays, endEpochDay)?.let { _error.value = it; return }
+        val base = _existing.value
         val end = resolveEndEpochDay(repeatDays, endEpochDay)
         // keep a stored next turn only if its date is still allowed by the (possibly new) end date,
         // otherwise a shortened end date would leave a stale "Next: ..." behind
-        val keepNext = base != null && repeatDays > 0 && isAllowedOccurrence(nextDueDay(dueEpochDay, repeatDays), end)
+        val keepNext = base != null && repeatDays > 0 &&
+                isAllowedOccurrence(nextDueDay(dueEpochDay, repeatDays), end)
         val chore = Chore(
             id = base?.id ?: "",
             title = title.trim(),
@@ -103,7 +129,16 @@ class AddChoreViewModel(
         viewModelScope.launch {
             val result = if (base == null) chores.addChore(householdId, chore)
             else chores.updateChore(householdId, chore)
-            result.onSuccess { onDone() }.onFailure { _error.value = it.friendlyMessage() }
+            result
+                .onSuccess {
+                    // the chore is saved now, so its draft isn't needed anymore
+                    if (base == null) {
+                        draftFinished = true
+                        drafts?.deleteDraft(householdId)
+                    }
+                    onDone()
+                }
+                .onFailure { _error.value = it.friendlyMessage() }
         }
     }
 
@@ -111,7 +146,7 @@ class AddChoreViewModel(
         fun factory(householdId: String, choreId: String?) = viewModelFactory {
             initializer {
                 val c = appContainer()
-                AddChoreViewModel(c.choreRepository, c.householdActions, householdId, choreId)
+                AddChoreViewModel(c.choreRepository, c.householdActions, householdId, choreId, c.choreDraftRepository)
             }
         }
     }

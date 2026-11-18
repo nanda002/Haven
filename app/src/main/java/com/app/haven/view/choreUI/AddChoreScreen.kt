@@ -18,6 +18,7 @@ import com.app.haven.data.model.Member
 import com.app.haven.domain.chore.CATEGORY_REQUIRED_MESSAGE
 import com.app.haven.domain.chore.CHORE_NOTES_MAX
 import com.app.haven.domain.chore.Chore
+import com.app.haven.domain.chore.ChoreDraft
 import com.app.haven.domain.chore.END_BEFORE_START_MESSAGE
 import com.app.haven.domain.chore.Recurrence
 import com.app.haven.domain.chore.formatFullEpochDay
@@ -25,6 +26,9 @@ import com.app.haven.domain.chore.resolveEndEpochDay
 import com.app.haven.domain.chore.schedulePreview
 import com.app.haven.view.common.PageHeader
 import com.app.haven.viewmodel.chore.AddChoreViewModel
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 // Add form (choreId = null) and edit form (choreId = an existing chore) share this screen
 @Composable
@@ -37,47 +41,61 @@ fun AddChoreScreen(
 ) {
     val loading by vm.loading.collectAsStateWithLifecycle()
     val existing by vm.existing.collectAsStateWithLifecycle()
+    val restoredDraft by vm.restoredDraft.collectAsStateWithLifecycle()
     val isEdit = choreId != null
 
     when {
-        isEdit && loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
         isEdit && existing == null -> Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
             PageHeader("Edit chore", onBack = onDone)
             Text("This chore no longer exists.")
         }
-        else -> ChoreForm(vm, existing, myUid, onDone)
+        else -> ChoreForm(vm, existing, restoredDraft, myUid, onDone)
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
-private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, onDone: () -> Unit) {
+private fun ChoreForm(
+    vm: AddChoreViewModel,
+    existing: Chore?,
+    restoredDraft: ChoreDraft?,
+    myUid: String,
+    onDone: () -> Unit
+) {
     val members by vm.members.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val today = rememberTodayEpochDay()
-    val key = existing?.id
+    val isAdd = existing == null
 
-    var title by rememberSaveable(key) { mutableStateOf(existing?.title ?: "") }
-    var categoryKey by rememberSaveable(key) { mutableStateOf<String?>(existing?.category) }
-    var notes by rememberSaveable(key) { mutableStateOf(existing?.notes ?: "") }
-    var assigneeUid by rememberSaveable(key) { mutableStateOf(existing?.assigneeUid) }
+    // Edit starts from the saved chore. Add starts from the draft left on this phone, or an empty form.
+    val form = rememberSaveable(existing?.id, saver = ChoreFormState.Saver) {
+        ChoreFormState(
+            existing?.let { ChoreDraft.fromChore(it) } ?: restoredDraft ?: ChoreDraft.newChore(myUid, today)
+        )
+    }
+    var showRestored by rememberSaveable { mutableStateOf(isAdd && restoredDraft != null) }
 
-    // Add: "Today" by default and follows the clock. Edit: the saved date, fixed.
-    var dueOffset by rememberSaveable(key) { mutableStateOf<Int?>(if (existing == null) 0 else null) }
-    var fixedDueDay by rememberSaveable(key) { mutableStateOf(existing?.dueEpochDay ?: today) }
-    val dueDay: Long = dueOffset?.let { today + it } ?: fixedDueDay
+    // Add mode: keep the draft on the phone up to date shortly after the user stops typing
+    if (isAdd) {
+        LaunchedEffect(form) {
+            snapshotFlow { form.toDraft() }
+                .distinctUntilChanged()
+                .debounce(500)
+                .collect { vm.autoSaveDraft(it) }
+        }
+    }
 
-    var repeatDays by rememberSaveable(key) { mutableStateOf(existing?.repeatDays ?: 0) }
-    var rotate by rememberSaveable(key) { mutableStateOf(existing?.rotate ?: true) }
-    // 0 = no end date. Edit starts from the saved end date, so unrelated edits never reset it.
-    var endDay by rememberSaveable(key) { mutableStateOf(existing?.endEpochDay ?: 0L) }
     var showPicker by rememberSaveable { mutableStateOf(false) }
     var showEndPicker by rememberSaveable { mutableStateOf(false) }
 
+    // "Today" and "Tomorrow" follow the clock. A picked date stays fixed.
+    val dueDay: Long = form.dueOffset?.let { today + it } ?: form.fixedDueDay
+
     // the saved assignee if still in the household, otherwise me, otherwise the first member
-    val assignee: Member? = members.firstOrNull { it.uid == assigneeUid }
+    val assignee: Member? = members.firstOrNull { it.uid == form.assigneeUid }
         ?: members.firstOrNull { it.uid == myUid }
         ?: members.firstOrNull()
 
@@ -89,8 +107,8 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
             confirmButton = {
                 TextButton({
                     pickerState.selectedDateMillis?.let {
-                        fixedDueDay = it / 86_400_000L
-                        dueOffset = null
+                        form.fixedDueDay = it / 86_400_000L
+                        form.dueOffset = null
                     }
                     showPicker = false
                 }) { Text("OK") }
@@ -101,7 +119,7 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
 
     if (showEndPicker) {
         val endPickerState = rememberDatePickerState(
-            initialSelectedDateMillis = (if (endDay > 0L) endDay else dueDay) * 86_400_000L,
+            initialSelectedDateMillis = (if (form.endDay > 0L) form.endDay else dueDay) * 86_400_000L,
             selectableDates = object : SelectableDates {
                 // dates before the first scheduled date can't be picked
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean =
@@ -112,7 +130,7 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
             onDismissRequest = { showEndPicker = false },
             confirmButton = {
                 TextButton({
-                    endPickerState.selectedDateMillis?.let { endDay = it / 86_400_000L }
+                    endPickerState.selectedDateMillis?.let { form.endDay = it / 86_400_000L }
                     showEndPicker = false
                 }) { Text("OK") }
             },
@@ -126,12 +144,28 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            PageHeader(if (existing == null) "Add chore" else "Edit chore", onBack = onDone)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // closing keeps the draft (add mode), same as the add-expense form
+                Box(Modifier.weight(1f)) {
+                    PageHeader(if (isAdd) "Add chore" else "Edit chore", onBack = onDone)
+                }
+                // add mode only: empty the form and delete the draft
+                if (isAdd) {
+                    TextButton(onClick = {
+                        form.load(ChoreDraft.newChore(myUid, today))
+                        showRestored = false
+                        vm.clearDraft()
+                    }) { Text("Clear") }
+                }
+            }
+            if (isAdd && showRestored) {
+                Text("Restored your unsaved draft", style = MaterialTheme.typography.bodySmall)
+            }
 
             FormSection("What needs doing") {
                 OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
+                    value = form.title,
+                    onValueChange = { form.title = it },
                     label = { Text("Chore name") },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
@@ -142,7 +176,7 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
                     if (error == CATEGORY_REQUIRED_MESSAGE) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                CategoryPicker(selectedKey = categoryKey, onSelect = { categoryKey = it })
+                CategoryPicker(selectedKey = form.categoryKey, onSelect = { form.categoryKey = it })
             }
 
             FormSection("Who and when") {
@@ -154,15 +188,15 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
                     members.forEach { m ->
                         FilterChip(
                             selected = assignee?.uid == m.uid,
-                            onClick = { assigneeUid = m.uid },
+                            onClick = { form.assigneeUid = m.uid },
                             label = { Text(if (m.uid == myUid) "${m.displayName} (you)" else m.displayName) }
                         )
                     }
                 }
                 FieldLabel("When should this begin?")
                 CardRow {
-                    ChoiceCard("Today", dueDay == today, { dueOffset = 0 }, Modifier.weight(1f).fillMaxHeight())
-                    ChoiceCard("Tomorrow", dueDay == today + 1, { dueOffset = 1 }, Modifier.weight(1f).fillMaxHeight())
+                    ChoiceCard("Today", dueDay == today, { form.dueOffset = 0 }, Modifier.weight(1f).fillMaxHeight())
+                    ChoiceCard("Tomorrow", dueDay == today + 1, { form.dueOffset = 1 }, Modifier.weight(1f).fillMaxHeight())
                     ChoiceCard(
                         "Choose date",
                         dueDay != today && dueDay != today + 1,
@@ -180,13 +214,14 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
             FormSection("Repeat") {
                 // the four choices, plus one extra selected card if the saved chore has some other interval
                 val options = Recurrence.entries.map { it.label to it.repeatDays } +
-                        if (Recurrence.fromRepeatDays(repeatDays) == null) listOf("Every $repeatDays days" to repeatDays)
-                        else emptyList()
+                        if (Recurrence.fromRepeatDays(form.repeatDays) == null) {
+                            listOf("Every ${form.repeatDays} days" to form.repeatDays)
+                        } else emptyList()
                 options.chunked(2).forEach { rowItems ->
                     CardRow {
                         rowItems.forEach { (label, days) ->
                             ChoiceCard(
-                                label, repeatDays == days, { repeatDays = days },
+                                label, form.repeatDays == days, { form.repeatDays = days },
                                 Modifier.weight(1f).fillMaxHeight()
                             )
                         }
@@ -196,22 +231,22 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
             }
 
             // one-time chores never take turns and have no end date, so these only show for repeating chores
-            if (repeatDays > 0) {
+            if (form.repeatDays > 0) {
                 FormSection("Take turns between roommates") {
                     CardRow {
                         ChoiceCard(
-                            "Take turns", rotate, { rotate = true },
+                            "Take turns", form.rotate, { form.rotate = true },
                             Modifier.weight(1f).fillMaxHeight(),
                             supporting = "Next roommate each time"
                         )
                         ChoiceCard(
-                            "Same person", !rotate, { rotate = false },
+                            "Same person", !form.rotate, { form.rotate = false },
                             Modifier.weight(1f).fillMaxHeight(),
                             supporting = assignee?.displayName ?: "Stays with one roommate"
                         )
                     }
                     Text(
-                        if (rotate) "Roommates take turns according to the chore's schedule. Each scheduled date goes to the next person in the household order."
+                        if (form.rotate) "Roommates take turns according to the chore's schedule. Each scheduled date goes to the next person in the household order."
                         else "Roommates could take turns according to the chore's schedule. Right now every scheduled date stays with ${assignee?.displayName ?: "the same person"}.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -220,19 +255,19 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
 
                 FormSection("When should this chore stop repeating?") {
                     CardRow {
-                        ChoiceCard("No end date", endDay == 0L, { endDay = 0L }, Modifier.weight(1f).fillMaxHeight())
+                        ChoiceCard("No end date", form.endDay == 0L, { form.endDay = 0L }, Modifier.weight(1f).fillMaxHeight())
                         ChoiceCard(
-                            "Choose an end date", endDay > 0L, { showEndPicker = true },
+                            "Choose an end date", form.endDay > 0L, { showEndPicker = true },
                             Modifier.weight(1f).fillMaxHeight()
                         )
                     }
-                    if (endDay > 0L) {
+                    if (form.endDay > 0L) {
                         Text(
-                            formatFullEpochDay(endDay),
+                            formatFullEpochDay(form.endDay),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (endDay < dueDay) {
+                        if (form.endDay < dueDay) {
                             Text(
                                 "$END_BEFORE_START_MESSAGE (${formatFullEpochDay(dueDay)}).",
                                 style = MaterialTheme.typography.bodySmall,
@@ -247,10 +282,10 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
             FormSection("Schedule preview") {
                 val preview = schedulePreview(
                     startEpochDay = dueDay,
-                    repeatDays = repeatDays,
-                    rotate = rotate,
+                    repeatDays = form.repeatDays,
+                    rotate = form.rotate,
                     assigneeName = assignee?.displayName,
-                    endEpochDay = resolveEndEpochDay(repeatDays, endDay)
+                    endEpochDay = resolveEndEpochDay(form.repeatDays, form.endDay)
                 )
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -275,12 +310,12 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
 
             FormSection("Notes") {
                 OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it.take(CHORE_NOTES_MAX) },
+                    value = form.notes,
+                    onValueChange = { form.notes = it.take(CHORE_NOTES_MAX) },
                     label = { Text("Notes (optional)") },
                     placeholder = { Text("Add instructions or details about this chore...") },
                     supportingText = {
-                        Text("${notes.length}/$CHORE_NOTES_MAX", Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+                        Text("${form.notes.length}/$CHORE_NOTES_MAX", Modifier.fillMaxWidth(), textAlign = TextAlign.End)
                     },
                     minLines = 3,
                     maxLines = 6,
@@ -301,9 +336,14 @@ private fun ChoreForm(vm: AddChoreViewModel, existing: Chore?, myUid: String, on
                     Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
                 Button(
-                    onClick = { vm.save(title, categoryKey, assignee, dueDay, repeatDays, rotate, endDay, notes, onDone) },
+                    onClick = {
+                        vm.save(
+                            form.title, form.categoryKey, assignee, dueDay,
+                            form.repeatDays, form.rotate, form.endDay, form.notes, onDone
+                        )
+                    },
                     modifier = Modifier.fillMaxWidth().height(52.dp)
-                ) { Text(if (existing == null) "Save chore" else "Save changes") }
+                ) { Text(if (isAdd) "Save chore" else "Save changes") }
             }
         }
     }
