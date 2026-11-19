@@ -25,6 +25,7 @@ class PushTokenRepository(
 
     override suspend fun saveToken(): Result<Unit> = runCatching {
         val uid = auth.currentUser?.uid ?: error("Not signed in")
+        @Suppress("DEPRECATION")
         val token = messaging.token.await()
         //using arrayUnion to add to array of values
         userDoc(uid).update("fcmTokens", FieldValue.arrayUnion(token))

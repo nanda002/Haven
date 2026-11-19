@@ -16,11 +16,11 @@ import com.google.firebase.messaging.RemoteMessage
 const val EXTRA_NOTIFICATION_TYPE = "type"
 const val TYPE_EXPENSE = "expense"
 
-//Receives push messages from Firebase Cloud Messaging (registered in AndroidManifest.xml).
-//Android starts it when a push arrives or the phone's push token changes, even if the app isn't open.
+//Receives push messages from FCM
+//Android starts it when a push arrives or the phone's push token changes, even if the app isn't open
 class HavenMessagingService : FirebaseMessagingService() {
 
-    //saved under the signed-in user so the Cloud Function knows where to send their notifications
+    //saved under the signed in user so the Cloud Function knows where to send their notifications
     override fun onNewToken(token: String) {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
         FirebaseFirestore.getInstance().collection("users").document(uid)

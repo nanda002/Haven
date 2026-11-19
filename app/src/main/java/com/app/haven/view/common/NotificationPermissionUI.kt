@@ -47,15 +47,12 @@ fun AskForNotificationsOnce() {
     }
 }
 
-//Household details: shows whether notifications are on, with a button to turn them on (when off)
-//or to open the phone's notification settings for Haven (when on, e.g. to turn them off).
 @Composable
 fun NotificationsCard() {
     val context = LocalContext.current
     val activity = LocalActivity.current
     var enabled by remember { mutableStateOf(notificationsEnabled(context)) }
 
-    //check again whenever the screen comes back, e.g. after the user turned them on in the phone's Settings
     LifecycleResumeEffect(Unit) {
         enabled = notificationsEnabled(context)
         onPauseOrDispose { }
@@ -69,10 +66,10 @@ fun NotificationsCard() {
             if (enabled) {
                 Text("Notifications are on", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "You'll hear when a roommate adds an expense you're part of.",
+                    "You'll hear when a roommate adds an expense you're part of!",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                //only the phone's Settings can turn them off again
+                //only the phone's settings can turn them off again
                 OutlinedButton(onClick = { openNotificationSettings(context) }) { Text("Notification settings") }
                 return@Column
             }
@@ -82,11 +79,11 @@ fun NotificationsCard() {
                 style = MaterialTheme.typography.bodyMedium
             )
             Button(onClick = {
+                //Android only allows popups for permissions twice on devices
                 if (canShowPermissionDialog(context, activity)) {
                     NotificationPrefs.markRequested(context)
                     launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
-                    //dialog blocked (or not a permission problem): only the phone's Settings can turn them on
                     openNotificationSettings(context)
                 }
             }) { Text("Turn on notifications") }
@@ -94,8 +91,6 @@ fun NotificationsCard() {
     }
 }
 
-//Android shows the system dialog at most twice, after the second "Don't allow" it's blocked
-//and only Settings can change it
 private fun canShowPermissionDialog(context: android.content.Context, activity: android.app.Activity?): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false   //no dialog before Android 13
     val permission = Manifest.permission.POST_NOTIFICATIONS
