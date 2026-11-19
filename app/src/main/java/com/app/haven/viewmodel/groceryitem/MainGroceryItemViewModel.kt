@@ -8,9 +8,12 @@ import com.app.haven.actions.GroceryItemActions
 import com.app.haven.actions.HouseholdActions
 import com.app.haven.actions.friendlyMessage
 import com.app.haven.appContainer
+import com.app.haven.data.api.ProductLookupActions
 import com.app.haven.domain.grocerylist.GroceryItem
+import com.app.haven.domain.grocerylist.ScannedItem
 import com.app.haven.domain.grocerylist.onList
 import com.app.haven.domain.grocerylist.validateGroceryItem
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,11 +28,15 @@ class MainGroceryItemViewModel(
     private val groceries: GroceryItemActions,
     households: HouseholdActions,
     private val householdId: String,
-    private val myUid: String
+    private val myUid: String,
+    private val products: ProductLookupActions
 ) : ViewModel() {
-
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _scan = MutableStateFlow<ScanState>(ScanState.Hidden)
+    val scan: StateFlow<ScanState> = _scan.asStateFlow()
+    private var scanJob: Job? = null
 
     //only what's still on the list; items already in a saved expense are in Bought history instead
     val items: StateFlow<List<GroceryItem>> = groceries.getItems(householdId)
@@ -45,7 +52,6 @@ class MainGroceryItemViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     // ---- events from the screen ----
-
     fun onAdd(name: String, onAdded: () -> Unit) {
         validateGroceryItem(name)?.let { _error.value = it; return }
         val item = GroceryItem(
@@ -89,14 +95,44 @@ class MainGroceryItemViewModel(
         }
     }
 
+    fun onBarcodeScanned(code: String) {
+        scanJob?.cancel()
+        _scan.value = ScanState.Loading(code)
+        scanJob = viewModelScope.launch {
+            products.lookUp(code)
+                .onSuccess { item ->
+                    _scan.value = if (item == null) ScanState.NotFound(code) else ScanState.Found(item)
+                }
+                .onFailure { _scan.value = ScanState.Error(code, it.friendlyMessage()) }
+        }
+    }
+
+    fun onRetryScan() {
+        val code = (_scan.value as? ScanState.Error)?.code ?: return
+        onBarcodeScanned(code)
+    }
+
+    fun onScanDismissed() {
+        scanJob?.cancel()
+        _scan.value = ScanState.Hidden
+    }
+
     fun onErrorShown() { _error.value = null }
 
     companion object {
         fun factory(householdId: String, myUid: String) = viewModelFactory {
             initializer {
                 val c = appContainer()
-                MainGroceryItemViewModel(c.groceryItemRepository, c.householdActions, householdId, myUid)
+                MainGroceryItemViewModel(c.groceryItemRepository, c.householdActions, householdId, myUid, c.productLookupRepository)
             }
         }
     }
+}
+
+sealed interface ScanState {
+    data object Hidden : ScanState
+    data class Loading(val code: String) : ScanState
+    data class Found(val item: ScannedItem) : ScanState
+    data class NotFound(val code: String) : ScanState
+    data class Error(val code: String, val message: String) : ScanState
 }

@@ -72,4 +72,14 @@ dependencies {
     // Coil (loads images from URLs, e.g. profile pictures)
     implementation(libs.coil.compose)            // AsyncImage for Compose
     implementation(libs.coil.network.okhttp)     // Coil 3 needs this to download images over the network
+    // Open Food Facts (look up a scanned grocery barcode)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")                       // HTTP requests; same version Coil already uses
+    // CameraX + ML Kit (barcode scanner screen)
+    implementation("androidx.camera:camera-camera2:1.6.2")                     // CameraX on top of the phone's camera hardware
+    implementation("androidx.camera:camera-lifecycle:1.6.2")                   // starts/stops the camera with the screen's lifecycle
+    implementation("androidx.camera:camera-compose:1.6.2")                     // CameraXViewfinder: camera preview as a composable (no Android View)
+    implementation("androidx.camera:camera-mlkit-vision:1.6.2")                // MlKitAnalyzer: passes camera frames to ML Kit
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")                 // ML Kit barcode reader, bundled so it works offline right away
+    testImplementation("org.json:json:20240303")                               // real org.json for unit tests (Android's is only a stub there)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2") // runTest + test dispatchers for ViewModel tests
 }

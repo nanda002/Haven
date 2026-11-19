@@ -241,10 +241,3 @@ private fun WithHousehold(
         else -> content(householdId, user.uid)
     }
 }
-
-@Composable
-private fun Placeholder(title: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("$title coming soon", style = MaterialTheme.typography.titleMedium)
-    }
-}
