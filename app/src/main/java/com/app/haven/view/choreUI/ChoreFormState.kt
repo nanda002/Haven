@@ -18,9 +18,12 @@ class ChoreFormState(draft: ChoreDraft) {
     var repeatDays by mutableStateOf(draft.repeatDays)
     var rotate by mutableStateOf(draft.rotate)
     var endDay by mutableStateOf(draft.endDay)
+    var scope by mutableStateOf(draft.scope)
+    var autoAssign by mutableStateOf(draft.autoAssign)
 
     fun toDraft() = ChoreDraft(
-        title, categoryKey, notes, assigneeUid, dueOffset, fixedDueDay, repeatDays, rotate, endDay
+        title, categoryKey, notes, assigneeUid, dueOffset, fixedDueDay, repeatDays, rotate, endDay,
+        scope, autoAssign
     )
 
     // replaces every field at once (used by Clear)
@@ -34,6 +37,8 @@ class ChoreFormState(draft: ChoreDraft) {
         repeatDays = d.repeatDays
         rotate = d.rotate
         endDay = d.endDay
+        scope = d.scope
+        autoAssign = d.autoAssign
     }
 
     companion object {

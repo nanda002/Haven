@@ -13,7 +13,9 @@ data class ChoreDraft(
     val fixedDueDay: Long,
     val repeatDays: Int,
     val rotate: Boolean,
-    val endDay: Long          // 0 = no end date
+    val endDay: Long,         // 0 = no end date
+    val scope: String = ChoreScope.HOUSEHOLD,
+    val autoAssign: Boolean = true   // household chores only: Automatic (true) or Manual (false)
 ) : Serializable {
 
     // nothing typed yet, so there's nothing worth keeping
@@ -22,7 +24,7 @@ data class ChoreDraft(
     companion object {
         // what an empty add form looks like
         fun newChore(myUid: String, today: Long) = ChoreDraft(
-            title = "", categoryKey = null, notes = "", assigneeUid = myUid,
+            title = "", categoryKey = null, notes = "", assigneeUid = null,
             dueOffset = 0, fixedDueDay = today, repeatDays = 0, rotate = true, endDay = 0L
         )
 
@@ -30,7 +32,8 @@ data class ChoreDraft(
         fun fromChore(chore: Chore) = ChoreDraft(
             title = chore.title, categoryKey = chore.category, notes = chore.notes,
             assigneeUid = chore.assigneeUid, dueOffset = null, fixedDueDay = chore.dueEpochDay,
-            repeatDays = chore.repeatDays, rotate = chore.rotate, endDay = chore.endEpochDay
+            repeatDays = chore.repeatDays, rotate = chore.rotate, endDay = chore.endEpochDay,
+            scope = chore.scope, autoAssign = false
         )
     }
 }

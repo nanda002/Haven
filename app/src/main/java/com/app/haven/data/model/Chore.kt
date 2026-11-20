@@ -48,5 +48,6 @@ fun DomainChore.toData() = Chore(
     lastCompletedEpochDay = lastCompletedEpochDay,
     category = category,
     notes = notes,
-    nextAssigneeUid = nextAssigneeUid, nextAssigneeName = nextAssigneeName
+    nextAssigneeUid = nextAssigneeUid, nextAssigneeName = nextAssigneeName,
+    scope = scope, ownerUid = ownerUid
 )
