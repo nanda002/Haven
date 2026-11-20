@@ -212,7 +212,10 @@ class AddChoreViewModel(
                 completedByName = base?.completedByName,
                 lastCompletedEpochDay = base?.lastCompletedEpochDay ?: 0L,
                 scope = if (personal) ChoreScope.PERSONAL else ChoreScope.HOUSEHOLD,
-                ownerUid = if (personal) myUid else ""
+                ownerUid = if (personal) myUid else "",
+                originalAssigneeUid = base?.originalAssigneeUid ?: assigneeUid,
+                originalAssigneeName = base?.originalAssigneeName ?: assigneeName,
+                originalForEpochDay = base?.originalForEpochDay ?: dueEpochDay
             )
             val result = if (base == null) chores.addChore(householdId, chore)
             else chores.updateChore(householdId, chore)

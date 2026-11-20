@@ -25,6 +25,8 @@ import kotlinx.coroutines.launch
 import com.app.haven.domain.chore.ChoreCompletion
 import com.app.haven.domain.chore.ChoreScope
 import com.app.haven.domain.chore.completionId
+import kotlinx.coroutines.delay
+import com.app.haven.domain.chore.originalAssignee
 
 sealed interface ChoresUiState {
     data object Loading : ChoresUiState
@@ -73,44 +75,67 @@ class ChoresViewModel(
     fun onToggleDone(chore: Chore) {
         val today = todayEpochDay()
         val me = members.value.firstOrNull { it.uid == myUid } ?: Assignee(myUid, "Someone")
-        val updated = if (chore.done) chore.reopen() else completeChore(chore, members.value, me, today)
-        viewModelScope.launch {
-            chores.updateChore(householdId, updated)
-                .onSuccess {
-                    if (!chore.done) _undo.value = chore
-                    // Contribution history: only shared household chores count, one record per occurrence,
-                    // and the credit goes to whoever ticked it, not to the assignee.
-                    if (chore.scope == ChoreScope.HOUSEHOLD) {
-                        if (chore.done) {
-                            chores.removeCompletion(householdId, completionId(chore.id, chore.dueEpochDay))
-                        } else {
-                            chores.recordCompletion(
-                                householdId,
-                                ChoreCompletion(
-                                    id = completionId(chore.id, chore.dueEpochDay),
-                                    choreId = chore.id,
-                                    choreTitle = chore.title,
-                                    completedByUid = me.uid,
-                                    completedByName = me.name,
-                                    assignedToUid = chore.assigneeUid,
-                                    dueEpochDay = chore.dueEpochDay,
-                                    completedEpochDay = today
-                                )
-                            )
-                        }
-                    }
-                }
+        val reopening = chore.done
+        val updated = if (reopening) chore.reopen() else completeChore(chore, members.value, me, today)
+        val shared = chore.scope == ChoreScope.HOUSEHOLD
+
+        // Contribution history: only shared household chores count, with one record per occurrence. The record
+        // has the same id every time, so a repeated tap or sync can't count an occurrence twice. The credit goes
+        // to whoever ticked it, not to the assignee, and the original assignee is kept next to the current one.
+        val record = if (shared && !reopening) {
+            ChoreCompletion(
+                id = completionId(chore.id, chore.dueEpochDay),
+                choreId = chore.id,
+                choreTitle = chore.title,
+                completedByUid = me.uid,
+                completedByName = me.name,
+                assignedToUid = chore.assigneeUid,
+                dueEpochDay = chore.dueEpochDay,
+                completedEpochDay = today,
+                originalAssigneeUid = chore.originalAssignee().uid
+            )
+        } else null
+        val staleRecordId = if (shared && reopening) completionId(chore.id, chore.dueEpochDay) else null
+
+        // un-ticking the chore that Undo was offered for makes that offer pointless
+        if (reopening && _undo.value?.id == chore.id) clearUndo()
+
+        // the chore and its record are saved together
+        completionWrite = viewModelScope.launch {
+            chores.applyCompletionChange(householdId, updated, record, staleRecordId)
+                .onSuccess { if (!reopening) offerUndo(chore) }
                 .onFailure { _error.value = it.friendlyMessage() }
         }
     }
 
-    // put the chore back exactly as it was, and take the undone completion out of the history
-    fun onUndo(previous: Chore) {
+    // Undo is offered for the latest completion only, and only for a short while. After that the snapshot is
+    // gone, so an old undo can never overwrite newer changes or remove the wrong history record.
+    private fun offerUndo(previous: Chore) {
+        undoTimer?.cancel()
+        _undo.value = previous
+        undoTimer = viewModelScope.launch {
+            delay(UNDO_WINDOW_MS)
+            _undo.value = null
+        }
+    }
+
+    private fun clearUndo() {
+        undoTimer?.cancel()
+        _undo.value = null
+    }
+
+    // Put the chore back exactly as it was and take the undone completion out of the history, in one batch.
+    // It waits for the completion's own write first, so the removal can never run before the record exists.
+    fun onUndo() {
+        val previous = _undo.value ?: return
+        clearUndo()
+        val pending = completionWrite
         viewModelScope.launch {
-            chores.updateChore(householdId, previous).onFailure { _error.value = it.friendlyMessage() }
-            if (previous.scope == ChoreScope.HOUSEHOLD) {
-                chores.removeCompletion(householdId, completionId(previous.id, previous.dueEpochDay))
-            }
+            pending?.join()
+            val recordId =
+                if (previous.scope == ChoreScope.HOUSEHOLD) completionId(previous.id, previous.dueEpochDay) else null
+            chores.applyCompletionChange(householdId, previous, record = null, removeRecordId = recordId)
+                .onFailure { _error.value = it.friendlyMessage() }
         }
     }
 

@@ -55,6 +55,12 @@ interface ChoreActions {
     suspend fun deleteChore(householdId: String, chore: Chore): Result<Unit>
     suspend fun recordCompletion(householdId: String, completion: ChoreCompletion): Result<Unit>
     suspend fun removeCompletion(householdId: String, completionId: String): Result<Unit>
+    suspend fun applyCompletionChange(
+        householdId: String,
+        chore: Chore,
+        record: ChoreCompletion?,
+        removeRecordId: String?
+    ): Result<Unit>
     fun observeTransfers(householdId: String, myUid: String): Flow<List<ChoreTransferRequest>>
     suspend fun sendTransfer(householdId: String, request: ChoreTransferRequest): Result<Unit>
     suspend fun respondToTransfer(householdId: String, request: ChoreTransferRequest, accept: Boolean): Result<Unit>
@@ -256,6 +262,38 @@ class ChoreRepository(
             tx.update(requestRef, mapOf("status" to answer, "respondedAt" to FieldValue.serverTimestamp()))
             null
         }.await()
+        Unit
+    }
+
+    // Only the fields that completing, un-ticking or undoing touch, so a completion can never overwrite
+    // the title, category, notes or anything else on the chore.
+    private fun completionFields(chore: Chore): Map<String, Any?> = mapOf(
+        "assigneeUid" to chore.assigneeUid,
+        "assigneeName" to chore.assigneeName,
+        "dueEpochDay" to chore.dueEpochDay,
+        "done" to chore.done,
+        "completedByUid" to chore.completedByUid,
+        "completedByName" to chore.completedByName,
+        "lastCompletedEpochDay" to chore.lastCompletedEpochDay,
+        "nextAssigneeUid" to chore.nextAssigneeUid,
+        "nextAssigneeName" to chore.nextAssigneeName
+    )
+
+    // One batch: the chore and its completion record are saved together or not at all, so a chore can never
+    // be marked done without its record (or the other way round), even if the app closes in between.
+    // Like the other writes it lands in this phone's copy at once and syncs when there's a connection.
+    override suspend fun applyCompletionChange(
+        householdId: String,
+        chore: Chore,
+        record: ChoreCompletion?,
+        removeRecordId: String?
+    ): Result<Unit> = runCatching {
+        require(chore.id.isNotBlank()) { "Missing chore id" }
+        val batch = db.batch()
+        batch.update(collectionFor(householdId, chore.scope).document(chore.id), completionFields(chore))
+        record?.let { batch.set(completions(householdId).document(it.id), it.toData()) }
+        removeRecordId?.let { batch.delete(completions(householdId).document(it)) }
+        batch.commit().addOnFailureListener { Log.e("Chore Repo", "completion change failed on the server") }
         Unit
     }
 

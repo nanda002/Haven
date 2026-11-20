@@ -55,7 +55,7 @@ fun ChoresScreen(
                 actionLabel = "Undo",
                 duration = SnackbarDuration.Indefinite
             )
-            if (result == SnackbarResult.ActionPerformed) vm.onUndo(previous)
+            if (result == SnackbarResult.ActionPerformed) vm.onUndo()
         }
     }
 
