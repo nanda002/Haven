@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.app.haven.actions.ChoreActions
+import com.app.haven.actions.chores.ChoreActions
 import com.app.haven.appContainer
 import com.app.haven.domain.chore.Chore
 import com.app.haven.domain.chore.todayEpochDay

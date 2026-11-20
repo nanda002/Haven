@@ -5,7 +5,9 @@ import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 import com.app.haven.domain.chore.ChoreCompletion as DomainCompletion
 
-// households/{householdId}/choreCompletions/{choreId_dueEpochDay}
+// Represents a completed chore occurrence stored in Firestore
+// Stored under households/{householdId}/choreCompletions
+// Each document represents one completion of a chore on a particular due date
 data class ChoreCompletionDoc(
     @DocumentId val id: String = "",
     val choreId: String = "",

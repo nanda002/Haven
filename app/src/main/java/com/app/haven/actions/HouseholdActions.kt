@@ -6,6 +6,9 @@ import com.app.haven.data.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import com.app.haven.domain.chore.epochDayOfMillis
+import com.app.haven.domain.chore.todayEpochDay
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -81,13 +84,18 @@ class HouseholdActions(
                 throw IllegalStateException("You're already in this household")
 
             tx.update(householdRef, "memberIds", FieldValue.arrayUnion(uid))
+            // merge, so someone coming back keeps their earlier stays and vacations
             tx.set(
                 householdRef.collection("members").document(uid), mapOf(
                     "displayName" to (userSnap.getString("username") ?: ""),
                     "photoUrl" to userSnap.getString("photoUrl"),
                     "active" to true,
+                    "vacation" to false,
+                    "vacationStartEpochDay" to 0L,
+                    "leftAt" to FieldValue.delete(),
                     "joinedAt" to FieldValue.serverTimestamp()
-                )
+                ),
+                SetOptions.merge()
             )
             tx.update(userRef, "householdId", householdRef.id)
             null
@@ -131,9 +139,61 @@ class HouseholdActions(
                 ?: throw IllegalStateException("You're not in a household")
             val householdRef = db.collection("households").document(householdId)
 
+            val memberRef = householdRef.collection("members").document(uid)
+            val memberSnap = tx.get(memberRef)   // every read comes before the first write
+            val today = todayEpochDay()
+            val joinedDay = memberSnap.getTimestamp("joinedAt")?.let { epochDayOfMillis(it.toDate().time) } ?: today
+
             tx.update(householdRef, "memberIds", FieldValue.arrayRemove(uid))
-            tx.update(householdRef.collection("members").document(uid), "active", false)
+            val leaving = mutableMapOf<String, Any>(
+                "active" to false,
+                "leftAt" to FieldValue.serverTimestamp(),
+                // this stay is kept for good, so work done during it still counts for them if they come back
+                "membershipPeriods" to FieldValue.arrayUnion(mapOf("joinedEpochDay" to joinedDay, "leftEpochDay" to today))
+            )
+            if (memberSnap.getBoolean("vacation") == true) {
+                // leaving ends a vacation that is still going
+                val start = memberSnap.getLong("vacationStartEpochDay") ?: today
+                leaving["vacation"] = false
+                leaving["vacationStartEpochDay"] = 0L
+                leaving["vacationPeriods"] = FieldValue.arrayUnion(
+                    mapOf("startEpochDay" to start, "endEpochDay" to maxOf(start, today))
+                )
+            }
+            tx.update(memberRef, leaving)
             tx.update(userRef, mapOf<String, Any?>("householdId" to null))
+            null
+        }.await()
+    }
+
+    // Vacation Mode. Its start and end days are kept for good, so the contribution history can tell
+    // which days the member was expected to take part. The end is the last day away.
+    suspend fun startVacation(householdId: String, today: Long = todayEpochDay()) {
+        val ref = db.collection("households").document(householdId).collection("members").document(uid())
+        db.runTransaction { tx ->
+            if (tx.get(ref).getBoolean("vacation") != true) {
+                tx.update(ref, mapOf("vacation" to true, "vacationStartEpochDay" to today))
+            }
+            null
+        }.await()
+    }
+
+    suspend fun endVacation(householdId: String, today: Long = todayEpochDay()) {
+        val ref = db.collection("households").document(householdId).collection("members").document(uid())
+        db.runTransaction { tx ->
+            val snap = tx.get(ref)
+            if (snap.getBoolean("vacation") == true) {
+                val start = snap.getLong("vacationStartEpochDay") ?: today
+                tx.update(
+                    ref, mapOf(
+                        "vacation" to false,
+                        "vacationStartEpochDay" to 0L,
+                        "vacationPeriods" to FieldValue.arrayUnion(
+                            mapOf("startEpochDay" to start, "endEpochDay" to maxOf(start, today - 1))
+                        )
+                    )
+                )
+            }
             null
         }.await()
     }

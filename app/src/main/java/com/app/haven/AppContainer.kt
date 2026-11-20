@@ -3,22 +3,22 @@ package com.app.haven
 import android.content.Context
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewmodel.CreationExtras
-import com.app.haven.actions.ExpenseActions
-import com.app.haven.actions.ExpenseDraftActions
-import com.app.haven.actions.ExpenseDraftRepository
-import com.app.haven.actions.ExpenseRepository
+import com.app.haven.actions.expense.ExpenseActions
+import com.app.haven.actions.expense.ExpenseDraftActions
+import com.app.haven.actions.expense.ExpenseDraftRepository
+import com.app.haven.actions.expense.ExpenseRepository
 import com.app.haven.actions.HouseholdActions
-import com.app.haven.actions.SettleExpenseActions
-import com.app.haven.actions.SettleExpenseRepository
+import com.app.haven.actions.expense.SettleExpenseActions
+import com.app.haven.actions.expense.SettleExpenseRepository
 import com.app.haven.actions.UserActions
 import com.app.haven.data.local.HavenDatabase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
-import com.app.haven.actions.ChoreActions
-import com.app.haven.actions.ChoreRepository
-import com.app.haven.actions.ChoreDraftActions
-import com.app.haven.actions.ChoreDraftRepository
+import com.app.haven.actions.chores.ChoreActions
+import com.app.haven.actions.chores.ChoreRepository
+import com.app.haven.actions.chores.ChoreDraftActions
+import com.app.haven.actions.chores.ChoreDraftRepository
 
 // Manual dependency injection: the only place that knows about Room and Firebase.
 // It builds the data layer once; ViewModel factories take what they need from here,

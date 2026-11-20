@@ -7,6 +7,9 @@ import com.app.haven.domain.chore.ChoreCategory
 import com.app.haven.domain.chore.Chore as DomainChore
 import com.app.haven.domain.chore.ChoreScope
 
+// Firestore data model for a chore
+// This class represents how a chore is stored as a document in Firebase.
+// Default values allow Firestore to create the object even if some fields are missing
 data class Chore(
     @DocumentId val id: String = "",
     val title: String = "",
@@ -29,6 +32,7 @@ data class Chore(
     @ServerTimestamp val createdAt: Date? = null
 )
 
+// Converts the Firestore Chore model into the domain Chore model
 fun Chore.toDomain() = DomainChore(
     id = id, title = title, assigneeUid = assigneeUid, assigneeName = assigneeName,
     dueEpochDay = dueEpochDay, repeatDays = repeatDays, rotate = rotate, endEpochDay = endEpochDay,
@@ -41,6 +45,7 @@ fun Chore.toDomain() = DomainChore(
     ownerUid = ownerUid
 )
 
+// Converts the domain Chore model into the Firestore data model
 fun DomainChore.toData() = Chore(
     title = title, assigneeUid = assigneeUid, assigneeName = assigneeName,
     dueEpochDay = dueEpochDay, repeatDays = repeatDays, rotate = rotate, endEpochDay = endEpochDay,

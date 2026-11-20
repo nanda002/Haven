@@ -1,4 +1,4 @@
-package com.app.haven.actions
+package com.app.haven.actions.chores
 
 import android.util.Log
 import com.app.haven.data.model.Chore as ChoreDoc
@@ -31,15 +31,18 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 
 
-// What the assignment logic needs, read at the moment a chore is saved
+// Groups together all the information needed by the automatic assignment algorithm.
+// Instead of making separate database calls from the ViewModel, we load the members,
+// their completion history, and currently open chores in one place.
+// The ViewModel passes this data to AutoAssign.kt to decide who should get a chore.
 data class AssignmentInputs(
     val members: List<HouseholdMember>,
     val completions: List<ChoreCompletion>,
     val openChores: List<Chore>
 )
 
-
-
+// Interface that defines the operations the chore repository must support.
+// The ViewModel uses this interface instead of directly communicating with Firestore.
 interface ChoreActions {
     fun getChores(householdId: String, myUid: String): Flow<List<Chore>>
     suspend fun addChore(householdId: String, chore: Chore): Result<Unit>
@@ -56,14 +59,25 @@ class ChoreRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) : ChoreActions {
 
+    // These functions point to the different Firestore collections used by the app.
+    // Household chores are shared between roommates.
+    // Personal chores are stored separately so they don't affect household contribution
+    // percentages or automatic assignment workload.
+    // Completion records are stored separately to preserve the history of who completed each chore.
     private fun household(householdId: String) = db.collection("households").document(householdId)
     private fun householdChores(householdId: String) = household(householdId).collection("chores")
     private fun personalChores(householdId: String) = household(householdId).collection("personalChores")
     private fun completions(householdId: String) = household(householdId).collection("choreCompletions")
 
+    // Chooses which Firestore collection to use based on the chore's scope.
+    // This lets add, update, and delete operations work with either household or personal chores.
     private fun collectionFor(householdId: String, scope: String): CollectionReference =
         if (scope == ChoreScope.PERSONAL) personalChores(householdId) else householdChores(householdId)
 
+    // Observes both chore collections and combines their results into one list.
+    // Shared chores are visible to household members, while personal chores are filtered
+    // by ownerUid so the current user only receives their own personal chores.
+    // The ViewModel observes this Flow to keep the chore screen updated when Firestore changes.
     override fun getChores(householdId: String, myUid: String): Flow<List<Chore>> =
         combine(
             listen(householdChores(householdId).orderBy("dueEpochDay")),
@@ -71,6 +85,12 @@ class ChoreRepository(
             listen(personalChores(householdId).whereEqualTo("ownerUid", myUid)).catch { emit(emptyList()) }
         ) { shared, personal -> shared + personal }
 
+    // Creates a continuous listener for a Firestore query using callbackFlow.
+    // Firestore sends a new snapshot whenever the collection changes.
+    // Each Firestore document is converted into a domain Chore object, and resolveOccurrence()
+    // calculates the current occurrence for recurring chores.
+    // awaitClose removes the listener when the Flow is no longer being collected,
+    // preventing unnecessary database listeners from staying active.
     private fun listen(query: Query): Flow<List<Chore>> = callbackFlow {
         val registration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
@@ -79,12 +99,19 @@ class ChoreRepository(
             }
             val today = todayEpochDay()
             val list = snapshot?.toObjects(ChoreDoc::class.java)
+                // Resolve recurring chores against today's date so the UI receives the current occurrence,
+                // rather than just the original chore document stored in Firestore.
                 ?.map { resolveOccurrence(it.toDomain(), today) } ?: emptyList()
             trySend(list)
         }
         awaitClose { registration.remove() }
     }
 
+
+    // Validates the chore information before saving it.
+    // The chore is added to the collection based on whether it is personal or shared.
+    // The Firestore write is not awaited, allowing the local cache to update immediately
+    // and synchronize with the server when a connection is available.
     override suspend fun addChore(householdId: String, chore: Chore): Result<Unit> =
         runCatching {
             validateChore(chore.title, chore.assigneeUid, chore.category)?.let { throw IllegalArgumentException(it) }
@@ -95,6 +122,9 @@ class ChoreRepository(
             Unit
         }
 
+    // Updates an existing chore document using its ID.
+    // Only the fields that can change are updated, rather than replacing the entire document.
+    // This is used when a user edits chore details or when completion changes the chore's state.
     override suspend fun updateChore(householdId: String, chore: Chore): Result<Unit> =
         runCatching {
             require(chore.id.isNotBlank()) { "Missing chore id" }
@@ -120,7 +150,9 @@ class ChoreRepository(
             Unit
         }
 
-    // the completion history is kept when a chore is deleted, so contribution numbers don't change
+    // Deletes the chore itself but intentionally keeps its completion history.
+    // This is important because deleting an old chore should not erase the contribution
+    // credit that roommates already earned by completing it.
     override suspend fun deleteChore(householdId: String, chore: Chore): Result<Unit> =
         runCatching {
             require(chore.id.isNotBlank()) { "Missing chore id" }
@@ -129,6 +161,10 @@ class ChoreRepository(
             Unit
         }
 
+    // Saves a separate record for a completed household chore occurrence.
+    // The record includes who actually completed it and who it was originally assigned to.
+    // This allows the contribution algorithm to credit the actual person who did the work,
+    // even if someone else was originally assigned.
     override suspend fun recordCompletion(householdId: String, completion: ChoreCompletion): Result<Unit> =
         runCatching {
             completions(householdId).document(completion.id).set(completion.toData())
@@ -136,6 +172,9 @@ class ChoreRepository(
             Unit
         }
 
+    // Removes a completion record when a completed chore is undone.
+    // This keeps the completion history consistent with the chore's current state
+    // and prevents an undone chore from contributing to someone's percentage.
     override suspend fun removeCompletion(householdId: String, completionId: String): Result<Unit> =
         runCatching {
             completions(householdId).document(completionId).delete()
@@ -143,7 +182,11 @@ class ChoreRepository(
             Unit
         }
 
-    // Reads membership, history and open chores again from the server (this phone's copy when offline or slow)
+    // Loads the latest information required for automatic chore assignment.
+    // It retrieves active household members, their join and vacation information,
+    // all household completion records, and currently unfinished household chores.
+    // AutoAssign.kt uses this information to calculate contribution percentages,
+    // check workload, and select an eligible roommate.
     override suspend fun loadAssignmentInputs(householdId: String): Result<AssignmentInputs> =
         runCatching {
             val today = todayEpochDay()
@@ -151,7 +194,9 @@ class ChoreRepository(
                 .whereEqualTo("active", true).latest()
                 .toObjects(Member::class.java)
                 .map { m ->
-                    // finished vacations plus the one still going, so participation can be worked out for any day
+                    // Converts the member's stored vacation dates into the domain VacationPeriod format.
+                    // If the member is currently on vacation, their ongoing vacation is also included.
+                    // The assignment algorithm uses these dates to exclude vacation periods from contribution tracking.
                     val periods = m.vacationPeriods.map { VacationPeriod(it.startEpochDay, it.endEpochDay) } +
                             if (m.vacation) listOf(VacationPeriod(m.vacationStartEpochDay)) else emptyList()
                     HouseholdMember(
@@ -163,8 +208,16 @@ class ChoreRepository(
                         vacationPeriods = periods
                     )
                 }
+
+            // Retrieves the household's completion history.
+            // Personal chores are not included because they are stored separately and should not
+            // affect household contribution percentages.
             val history = completions(householdId).latest()
                 .toObjects(ChoreCompletionDoc::class.java).map { it.toDomain() }
+
+            // Loads shared chores and resolves recurring chores to their current occurrence.
+            // Only unfinished chores are returned because completed chores should not count
+            // toward someone's upcoming workload.
             val open = householdChores(householdId).latest()
                 .toObjects(ChoreDoc::class.java)
                 .map { resolveOccurrence(it.toDomain(), today) }
@@ -172,7 +225,10 @@ class ChoreRepository(
             AssignmentInputs(members, history, open)
         }
 
-    // The newest data from the server, or this phone's copy if offline or the server is slow
+    // Tries to retrieve the newest data directly from the Firestore server.
+    // If the server is unavailable or takes longer than four seconds, it falls back
+    // to the local Firestore cache so the app can still work offline.
+    // This is particularly important when calculating assignments without a connection.
     private suspend fun Query.latest(): QuerySnapshot {
         val fromServer = try {
             withTimeoutOrNull(4_000) { get(Source.SERVER).await() }

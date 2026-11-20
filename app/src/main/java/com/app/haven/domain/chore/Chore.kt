@@ -23,7 +23,10 @@ data class Chore(
     val nextAssigneeUid: String = "",   // set when a repeating occurrence is completed: who gets the next scheduled date
     val nextAssigneeName: String = "",
     val scope: String = ChoreScope.HOUSEHOLD,   // "household" or "personal", stored explicitly so it can be filtered
-    val ownerUid: String = ""                    // personal chores only: the one person who can see it
+    val ownerUid: String = "",                    // personal chores only: the one person who can see it
+    val originalAssigneeUid: String = "",        // who this occurrence was first given to, before any hand-over
+    val originalAssigneeName: String = "",
+    val originalForEpochDay: Long = 0L           // the occurrence those two belong to, so a new occurrence starts fresh
 )
 
 data class Assignee(val uid: String, val name: String, val joinedAtMillis: Long = Long.MAX_VALUE)

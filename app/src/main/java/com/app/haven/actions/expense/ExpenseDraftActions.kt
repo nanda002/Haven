@@ -1,4 +1,4 @@
-package com.app.haven.actions
+package com.app.haven.actions.expense
 
 import com.app.haven.data.local.daos.ExpenseDraftDao
 import com.app.haven.data.local.entities.toDomain

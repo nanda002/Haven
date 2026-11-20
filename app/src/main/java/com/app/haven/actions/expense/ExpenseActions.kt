@@ -1,4 +1,4 @@
-package com.app.haven.actions
+package com.app.haven.actions.expense
 
 import android.util.Log
 import com.app.haven.data.local.daos.ExpenseDao
@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 interface ExpenseActions {
     fun getExpenses(householdId: String): Flow<List<Expense>>
