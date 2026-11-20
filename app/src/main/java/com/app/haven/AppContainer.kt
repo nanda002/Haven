@@ -16,6 +16,7 @@ import com.app.haven.actions.SettleExpenseActions
 import com.app.haven.actions.SettleExpenseRepository
 import com.app.haven.actions.UserActions
 import com.app.haven.data.local.HavenDatabase
+import com.app.haven.notifications.NotificationPrefs
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -43,7 +44,7 @@ class AppContainer(context: Context) {
     val settlementRepository: SettleExpenseActions = SettleExpenseRepository(localDb.settlementDao(), firestore)
     val expenseDraftRepository: ExpenseDraftActions = ExpenseDraftRepository(localDb.expenseDraftDao())
     val groceryItemRepository: GroceryItemActions = GroceryItemRepository(firestore)
-    val pushTokenRepository: PushTokenActions = PushTokenRepository(auth, firestore)
+    val pushTokenRepository: PushTokenActions = PushTokenRepository(auth, firestore, pushOn = { NotificationPrefs.pushOn(context) })
 
     // on logout: remove the household's local copy and unsaved drafts, so the next user on this phone doesn't see them
     suspend fun clearLocalData() {

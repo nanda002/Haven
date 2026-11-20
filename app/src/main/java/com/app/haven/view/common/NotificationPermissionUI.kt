@@ -8,21 +8,27 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.app.haven.HavenApplication
+import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -51,42 +57,67 @@ fun AskForNotificationsOnce() {
 fun NotificationsCard() {
     val context = LocalContext.current
     val activity = LocalActivity.current
-    var enabled by remember { mutableStateOf(notificationsEnabled(context)) }
+    val pushTokens = remember { (context.applicationContext as HavenApplication).container.pushTokenRepository }
+    val scope = rememberCoroutineScope()
+    var permissionOn by remember { mutableStateOf(notificationsEnabled(context)) }
+    var pushOn by remember { mutableStateOf(NotificationPrefs.pushOn(context)) }
+    val enabled = permissionOn && pushOn
+
+    fun turnOn() {
+        NotificationPrefs.setPushOn(context, true)
+        pushOn = true
+        scope.launch { pushTokens.saveToken() }
+    }
+
+    fun turnOff() {
+        NotificationPrefs.setPushOn(context, false)
+        pushOn = false
+        scope.launch { pushTokens.removeToken() }
+    }
 
     LifecycleResumeEffect(Unit) {
-        enabled = notificationsEnabled(context)
+        permissionOn = notificationsEnabled(context)
+        pushOn = NotificationPrefs.pushOn(context)
         onPauseOrDispose { }
     }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        enabled = notificationsEnabled(context)
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        permissionOn = notificationsEnabled(context)
+        if (granted) turnOn()
     }
 
     Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (enabled) {
-                Text("Notifications are on", style = MaterialTheme.typography.titleMedium)
+        Row(
+            Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    "You'll hear when a roommate adds an expense you're part of!",
+                    if (enabled) "Notifications are on" else "Notifications are off",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    if (enabled) "You'll hear when a roommate adds an expense you're part of!"
+                    else "Turn them on to hear when a roommate adds an expense you're part of.",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                //only the phone's settings can turn them off again
-                OutlinedButton(onClick = { openNotificationSettings(context) }) { Text("Notification settings") }
-                return@Column
             }
-            Text("Notifications are off", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Turn them on to hear when a roommate adds an expense you're part of.",
-                style = MaterialTheme.typography.bodyMedium
+            Switch(
+                checked = enabled,
+                onCheckedChange = { wantOn ->
+                    when {
+                        !wantOn -> turnOff()
+                        permissionOn -> turnOn()
+                        //Android only allows popups for permissions twice on devices
+                        canShowPermissionDialog(context, activity) -> {
+                            NotificationPrefs.markRequested(context)
+                            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                        else -> openNotificationSettings(context)
+                    }
+                },
+                modifier = Modifier.semantics { contentDescription = "Notifications" }
             )
-            Button(onClick = {
-                //Android only allows popups for permissions twice on devices
-                if (canShowPermissionDialog(context, activity)) {
-                    NotificationPrefs.markRequested(context)
-                    launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    openNotificationSettings(context)
-                }
-            }) { Text("Turn on notifications") }
         }
     }
 }

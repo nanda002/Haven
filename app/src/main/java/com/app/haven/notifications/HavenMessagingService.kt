@@ -23,6 +23,7 @@ class HavenMessagingService : FirebaseMessagingService() {
     //saved under the signed in user so the Cloud Function knows where to send their notifications
     override fun onNewToken(token: String) {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        if (!NotificationPrefs.pushOn(this)) return
         FirebaseFirestore.getInstance().collection("users").document(uid)
             .update("fcmTokens", FieldValue.arrayUnion(token))
             .addOnFailureListener { Log.e(TAG, "saving the push token failed", it) }
@@ -39,6 +40,7 @@ class HavenMessagingService : FirebaseMessagingService() {
         val manager = NotificationManagerCompat.from(this)
         //user turned notifications off
         if (!manager.areNotificationsEnabled()) return
+        if (!NotificationPrefs.pushOn(this)) return
 
         //tapping the notification opens the app
         //intent is a way to communicate between android objects

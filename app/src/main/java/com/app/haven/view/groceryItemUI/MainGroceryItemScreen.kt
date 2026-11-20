@@ -158,7 +158,7 @@ fun MainGroceryItemScreen(
                 //partition separates the items in the list
                 //into two groups based on the condition !it.bought
                 val (toBuy, bought) = items.partition { !it.bought }
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(toBuy, key = { it.id }) { item ->
                         GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
                     }
