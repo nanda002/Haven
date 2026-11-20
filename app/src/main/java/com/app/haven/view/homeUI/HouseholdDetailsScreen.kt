@@ -34,6 +34,7 @@ import com.app.haven.viewmodel.home.HomeViewModel
 import com.app.haven.viewmodel.home.HouseholdMembersViewModel
 import androidx.compose.ui.draw.alpha
 import com.app.haven.view.common.Avatar
+import com.app.haven.view.common.CameraCard
 
 // Household page: name, invite code, members (current + past), leave household
 @Composable
@@ -58,6 +59,9 @@ fun HouseholdDetailsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         PageHeader("Household details", onBack)
+        //notifications on/off, with a button to change it
+        NotificationsCard()
+        CameraCard()
 
         when {
             ui.loading -> CircularProgressIndicator()

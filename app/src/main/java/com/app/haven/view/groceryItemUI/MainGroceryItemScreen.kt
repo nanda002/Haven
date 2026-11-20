@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -25,7 +26,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.domain.InputLimits
 import com.app.haven.domain.grocerylist.GroceryItem
 import com.app.haven.view.common.LimitedTextField
+import com.app.haven.domain.grocerylist.listName
 import com.app.haven.viewmodel.groceryitem.MainGroceryItemViewModel
+import com.app.haven.viewmodel.groceryitem.ScanState
 
 //Gets the ViewModel and passes its state and events into the screen below.
 //This is what the "grocery" route in MainScaffold calls.
@@ -37,10 +40,20 @@ fun GroceryListRoute(
     onAddToExpense: () -> Unit = {},
     //"Show Bought Items": opens the bought history
     onShowBought: () -> Unit = {},
+    onScan: () -> Unit = {},
+    scannedCode: String? = null,
+    onScannedCodeHandled: () -> Unit = {},
     vm: MainGroceryItemViewModel = viewModel(factory = MainGroceryItemViewModel.factory(householdId, myUid))
 ) {
+    LaunchedEffect(scannedCode) {
+        scannedCode?.let { code ->
+            vm.onBarcodeScanned(code)
+            onScannedCodeHandled()
+        }
+    }
     val items by vm.items.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
+    val scan by vm.scan.collectAsStateWithLifecycle()
     MainGroceryItemScreen(
         myUid = myUid,
         items = items,
@@ -50,7 +63,11 @@ fun GroceryListRoute(
         onRename = vm::onRename,
         onDelete = vm::onDelete,
         onAddToExpense = onAddToExpense,
-        onShowBought = onShowBought
+        onShowBought = onShowBought,
+        onScan = onScan,
+        scan = scan,
+        onRetryScan = vm::onRetryScan,
+        onScanDismissed = vm::onScanDismissed
     )
 }
 
@@ -68,7 +85,11 @@ fun MainGroceryItemScreen(
     //bottom bar's "Add to expense"
     onAddToExpense: () -> Unit = {},
     //"Show Bought Items" button
-    onShowBought: () -> Unit = {}
+    onShowBought: () -> Unit = {},
+    onScan: () -> Unit = {},
+    scan: ScanState = ScanState.Hidden,
+    onRetryScan: () -> Unit = {},
+    onScanDismissed: () -> Unit = {}
 ) {
     //what the user is typing in the add bar (survives rotation)
     var text by rememberSaveable { mutableStateOf("") }
@@ -123,6 +144,13 @@ fun MainGroceryItemScreen(
         )
     }
 
+    ScanProductDialog(
+        scan = scan,
+        onAddToList = { item -> onAdd(item.listName()) { onScanDismissed() } },
+        onRetry = onRetryScan,
+        onDismiss = onScanDismissed
+    )
+
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         //title + button to the bought history (items grouped by the day they were bought)
         Row(
@@ -147,6 +175,9 @@ fun MainGroceryItemScreen(
                 keyboardActions = KeyboardActions(onDone = { submit() }),
                 modifier = Modifier.weight(1f)
             )
+            IconButton(onClick = onScan) {
+                Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan a barcode")
+            }
             IconButton(onClick = submit, enabled = text.isNotBlank()) {
                 Icon(Icons.Default.Add, contentDescription = "Add item")
             }

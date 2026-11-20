@@ -32,6 +32,8 @@ import com.app.haven.view.expenseUI.SettleExpenseScreen
 import com.app.haven.view.groceryItemUI.AddUpPricesScreen
 import com.app.haven.view.groceryItemUI.BoughtHistoryScreen
 import com.app.haven.view.groceryItemUI.GroceryListRoute
+import com.app.haven.view.groceryItemUI.ScanProductScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.app.haven.view.homeUI.HomeScreen
 import com.app.haven.view.homeUI.HouseholdDetailsScreen
 import com.app.haven.viewmodel.expense.ExpensePrefill
@@ -186,14 +188,29 @@ fun MainScaffold(
 
             // grocery tab: shared list + Enter prices, grouped so the Grocery tab stays highlighted
             navigation(startDestination = "grocery", route = "grocery_tab") {
-                composable("grocery") {
+                composable("grocery") { entry ->
+                    val scannedCode by entry.savedStateHandle
+                        .getStateFlow<String?>("scannedCode", null)
+                        .collectAsStateWithLifecycle()
                     WithHousehold(userResult) { householdId, myUid ->
                         GroceryListRoute(
                             householdId, myUid,
                             onAddToExpense = { nav.navigate("grocery/prices") },
-                            onShowBought = { nav.navigate("grocery/history") }
+                            onShowBought = { nav.navigate("grocery/history") },
+                            onScan = { nav.navigate("grocery/scan") },
+                            scannedCode = scannedCode,
+                            onScannedCodeHandled = { entry.savedStateHandle["scannedCode"] = null }
                         )
                     }
+                }
+                composable("grocery/scan") {
+                    ScanProductScreen(
+                        onScanned = { code ->
+                            nav.previousBackStackEntry?.savedStateHandle?.set("scannedCode", code)
+                            nav.popBackStack()
+                        },
+                        onClose = { nav.popBackStack() }
+                    )
                 }
                 // "Show Bought Items": items grouped under the day they were bought
                 composable("grocery/history") {
