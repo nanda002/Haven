@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.app.haven.domain.chore.titleCase
 
 // Used for both "Add chore" (choreId = null) and "Edit chore".
 // Only the add form keeps a draft on the phone, same as the add-expense form.
@@ -116,7 +117,7 @@ class AddChoreViewModel(
         val keepNext = base != null && repeatDays > 0 && isAllowedOccurrence(nextDueDay(dueEpochDay, repeatDays), end)
         val chore = Chore(
             id = base?.id ?: "",
-            title = title.trim(),
+            title = titleCase(title),
             category = ChoreCategory.fromKey(category).key,
             notes = normalizeNotes(notes),
             nextAssigneeUid = if (keepNext) base?.nextAssigneeUid.orEmpty() else "",

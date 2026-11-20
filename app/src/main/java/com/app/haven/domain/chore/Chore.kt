@@ -68,8 +68,17 @@ fun validateEndDate(firstEpochDay: Long, repeatDays: Int, endEpochDay: Long): St
 
 const val CHORE_NOTES_MAX = 300
 
-// trim, then hard-cap at the limit. Used before saving, so storage never exceeds it
-fun normalizeNotes(raw: String): String = raw.trim().take(CHORE_NOTES_MAX)
+// "laundry cleaning" -> "Laundry Cleaning". Every word starts with a capital, the rest of each word
+// stays as typed (so "TV room" becomes "TV Room"), and extra spaces are tidied.
+fun titleCase(raw: String): String =
+    raw.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        .joinToString(" ") { word -> word.replaceFirstChar { it.uppercaseChar() } }
+
+// Notes: only the first character is capitalized, everything else stays exactly as typed
+fun capitalizeFirst(raw: String): String = raw.trim().replaceFirstChar { it.uppercaseChar() }
+
+// trim, capitalize the first character, then hard-cap at the limit
+fun normalizeNotes(raw: String): String = capitalizeFirst(raw).take(CHORE_NOTES_MAX)
 enum class ChoreStatus { DONE, OVERDUE, DUE_TODAY, UPCOMING }
 
 object ChoreScope {

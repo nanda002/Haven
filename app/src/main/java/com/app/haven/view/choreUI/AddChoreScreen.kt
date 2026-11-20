@@ -29,6 +29,8 @@ import com.app.haven.viewmodel.chore.AddChoreViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 
 // Add form (choreId = null) and edit form (choreId = an existing chore) share this screen
 @Composable
@@ -181,7 +183,8 @@ private fun ChoreForm(
                     label = { Text("Chore name") },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
                 )
                 FieldLabel(
                     "Category",
@@ -348,7 +351,8 @@ private fun ChoreForm(
                     minLines = 3,
                     maxLines = 6,
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
                 )
             }
 
