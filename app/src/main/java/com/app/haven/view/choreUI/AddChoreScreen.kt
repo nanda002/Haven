@@ -19,6 +19,7 @@ import com.app.haven.domain.chore.CATEGORY_REQUIRED_MESSAGE
 import com.app.haven.domain.chore.CHORE_NOTES_MAX
 import com.app.haven.domain.chore.Chore
 import com.app.haven.domain.chore.ChoreDraft
+import com.app.haven.domain.chore.ChoreScope
 import com.app.haven.domain.chore.END_BEFORE_START_MESSAGE
 import com.app.haven.domain.chore.Recurrence
 import com.app.haven.domain.chore.formatFullEpochDay
@@ -26,6 +27,7 @@ import com.app.haven.domain.chore.resolveEndEpochDay
 import com.app.haven.domain.chore.schedulePreview
 import com.app.haven.view.common.PageHeader
 import com.app.haven.viewmodel.chore.AddChoreViewModel
+import com.app.haven.viewmodel.chore.AutoAssignPreview
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -97,21 +99,40 @@ private fun ChoreForm(
     // "Today" and "Tomorrow" follow the clock. A picked date stays fixed.
     val dueDay: Long = form.dueOffset?.let { today + it } ?: form.fixedDueDay
 
-    val chosenMember: Member? = members.firstOrNull { it.uid == form.assigneeUid }
+    val isPersonal = if (isAdd) form.scope == ChoreScope.PERSONAL else existing?.scope == ChoreScope.PERSONAL
+    val autoAssign = isAdd && !isPersonal && form.autoAssign
+    val autoPreview by vm.autoPreview.collectAsStateWithLifecycle()
+
+    // The pick is worked out each time Automatic is shown, and again when the chore is saved
+    if (autoAssign) {
+        LaunchedEffect(Unit) { vm.refreshAutoPreview() }
+    }
+
+    // Who can be picked by hand: not on vacation (an existing assignee on vacation stays visible)
+    val manualOptions = members.filter { !it.vacation || it.uid == existing?.assigneeUid }
+    val chosenMember: Member? = manualOptions.firstOrNull { it.uid == form.assigneeUid }
+    val memberLabel = { m: Member -> if (m.uid == myUid) "${m.displayName} (you)" else m.displayName }
 
     // Edit: the saved assignee has left the household. They stay on the chore (nobody else is
     // swapped in) until the user deliberately picks a roommate.
-    val assigneeLeft = existing != null && members.isNotEmpty() &&
+    val assigneeLeft = existing != null && !isPersonal && members.isNotEmpty() &&
             chosenMember == null && form.assigneeUid == existing.assigneeUid
 
     val assignee: Member? = when {
+        // personal: always me
+        isPersonal -> members.firstOrNull { it.uid == myUid }
+            ?: existing?.let { Member(uid = it.assigneeUid, displayName = it.assigneeName) }
         chosenMember != null -> chosenMember
         // edit, still on the saved assignee (also covers the moment before the member list loads)
         existing != null && form.assigneeUid == existing.assigneeUid ->
             Member(uid = existing.assigneeUid, displayName = existing.assigneeName, active = false)
-        // new chore: me by default, or the first roommate until the member list has loaded
-        else -> members.firstOrNull { it.uid == myUid } ?: members.firstOrNull()
+        // new chore: Automatic is decided when saving, Manual needs a pick
+        else -> null
     }
+
+    // the name shown in the previews
+    val assigneeLabel: String? =
+        if (autoAssign) (autoPreview as? AutoAssignPreview.Chosen)?.name else assignee?.displayName
 
     if (showPicker) {
         // the picker works in UTC midnight millis, which is exactly an epoch day
@@ -194,34 +215,80 @@ private fun ChoreForm(
                 CategoryPicker(selectedKey = form.categoryKey, onSelect = { form.categoryKey = it })
             }
 
-            FormSection("Who & When") {
-                FieldLabel("Assign to")
-                Row(
-                    Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (assigneeLeft && assignee != null) {
-                        FilterChip(
-                            selected = true,
-                            onClick = {},
-                            label = { Text("${assignee.displayName} (left)") }
+            // set when the chore is created and can't be changed afterwards (the two kinds are stored separately)
+            if (isAdd) {
+                FormSection("Chore Type") {
+                    CardRow {
+                        ChoiceCard(
+                            "Household", form.scope == ChoreScope.HOUSEHOLD,
+                            { form.scope = ChoreScope.HOUSEHOLD },
+                            Modifier.weight(1f).fillMaxHeight(),
+                            supporting = "Shared with the household"
                         )
-                    }
-                    members.forEach { m ->
-                        FilterChip(
-                            selected = assignee?.uid == m.uid,
-                            onClick = { form.assigneeUid = m.uid },
-                            label = { Text(if (m.uid == myUid) "${m.displayName} (you)" else m.displayName) }
+                        ChoiceCard(
+                            "Personal", form.scope == ChoreScope.PERSONAL,
+                            { form.scope = ChoreScope.PERSONAL },
+                            Modifier.weight(1f).fillMaxHeight(),
+                            supporting = "Only you can see it"
                         )
                     }
                 }
+            }
 
-                if (assigneeLeft && assignee != null) {
-                    Text(
-                        "${assignee.displayName} has left the household. Pick a roommate to take over, or save to keep it with ${assignee.displayName} for now.",
+            FormSection("Who & When") {
+                when {
+                    isPersonal -> Text(
+                        "This chore is assigned to you. Only you can see it, and it doesn't count toward the household's contributions or workload.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    isAdd -> {
+                        FieldLabel("How Should It Be Assigned?")
+                        CardRow {
+                            ChoiceCard(
+                                "Automatic", form.autoAssign, { form.autoAssign = true },
+                                Modifier.weight(1f).fillMaxHeight(),
+                                supporting = "Whoever has done the least"
+                            )
+                            ChoiceCard(
+                                "Manual", !form.autoAssign, { form.autoAssign = false },
+                                Modifier.weight(1f).fillMaxHeight(),
+                                supporting = "Pick a roommate"
+                            )
+                        }
+                        if (form.autoAssign) {
+                            AutoAssignSummary(autoPreview)
+                        } else if (manualOptions.isEmpty()) {
+                            Text(
+                                "No roommates are available to pick right now.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        } else {
+                            MemberChoices(
+                                options = manualOptions.map { it.uid to memberLabel(it) },
+                                selectedUid = form.assigneeUid,
+                                onSelect = { form.assigneeUid = it }
+                            )
+                        }
+                    }
+                    else -> {
+                        FieldLabel("Assign to")
+                        MemberChoices(
+                            options = listOfNotNull(
+                                if (assigneeLeft && assignee != null) assignee.uid to "${assignee.displayName} (left)" else null
+                            ) + manualOptions.map { it.uid to memberLabel(it) },
+                            selectedUid = form.assigneeUid,
+                            onSelect = { form.assigneeUid = it }
+                        )
+                        if (assigneeLeft && assignee != null) {
+                            Text(
+                                "${assignee.displayName} has left the household. Pick a roommate to take over, or save to keep it with ${assignee.displayName} for now.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
                 }
 
                 FieldLabel("When Should This Begin?")
@@ -263,7 +330,7 @@ private fun ChoreForm(
 
             // one-time chores never take turns and have no end date, so these only show for repeating chores
             if (form.repeatDays > 0) {
-                FormSection("Take Turns Between Roommates") {
+                if (!isPersonal) FormSection("Take Turns Between Roommates") {
                     CardRow {
                         ChoiceCard(
                             "Take turns", form.rotate, { form.rotate = true },
@@ -273,12 +340,12 @@ private fun ChoreForm(
                         ChoiceCard(
                             "Same person", !form.rotate, { form.rotate = false },
                             Modifier.weight(1f).fillMaxHeight(),
-                            supporting = assignee?.displayName ?: "Stays with one roommate"
+                            supporting = assigneeLabel ?: "Stays with one roommate"
                         )
                     }
                     Text(
                         if (form.rotate) "Roommates take turns according to the chore's schedule. Each scheduled date goes to the next person in the household order."
-                        else "Roommates could take turns according to the chore's schedule. Right now every scheduled date stays with ${assignee?.displayName ?: "the same person"}.",
+                        else "Roommates could take turns according to the chore's schedule. Right now every scheduled date stays with ${assigneeLabel ?: "the same person"}.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -314,8 +381,8 @@ private fun ChoreForm(
                 val preview = schedulePreview(
                     startEpochDay = dueDay,
                     repeatDays = form.repeatDays,
-                    rotate = form.rotate,
-                    assigneeName = assignee?.displayName,
+                    rotate = form.rotate && !isPersonal,
+                    assigneeName = assigneeLabel,
                     endEpochDay = resolveEndEpochDay(form.repeatDays, form.endDay)
                 )
                 Surface(
@@ -352,7 +419,7 @@ private fun ChoreForm(
                     maxLines = 6,
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
                 )
             }
 
@@ -370,8 +437,17 @@ private fun ChoreForm(
                 Button(
                     onClick = {
                         vm.save(
-                            form.title, form.categoryKey, assignee, dueDay,
-                            form.repeatDays, form.rotate, form.endDay, form.notes, onDone
+                            title = form.title,
+                            category = form.categoryKey,
+                            scope = if (isAdd) form.scope else existing?.scope ?: ChoreScope.HOUSEHOLD,
+                            autoAssign = form.autoAssign,
+                            assignee = assignee,
+                            dueEpochDay = dueDay,
+                            repeatDays = form.repeatDays,
+                            rotate = form.rotate,
+                            endEpochDay = form.endDay,
+                            notes = form.notes,
+                            onDone = onDone
                         )
                     },
                     enabled = !saving,
@@ -407,4 +483,49 @@ private fun CardRow(content: @Composable RowScope.() -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         content = content
     )
+}
+
+// One selectable card per roommate, exactly one can be selected
+@Composable
+private fun MemberChoices(
+    options: List<Pair<String, String>>,   // uid to label
+    selectedUid: String?,
+    onSelect: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { (uid, label) ->
+            ChoiceCard(label, selectedUid == uid, { onSelect(uid) }, Modifier.fillMaxWidth())
+        }
+    }
+}
+
+// Under Automatic: who would get the chore, or why nobody can
+@Composable
+private fun AutoAssignSummary(preview: AutoAssignPreview) {
+    val unavailable = preview is AutoAssignPreview.Unavailable
+    val text = when (preview) {
+        AutoAssignPreview.Loading -> "Choosing a roommate..."
+        is AutoAssignPreview.Chosen -> "Will be assigned to ${preview.name}"
+        is AutoAssignPreview.Unavailable -> preview.message
+    }
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (unavailable) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+            )
+            if (preview is AutoAssignPreview.Chosen) {
+                Text(
+                    "Based on who has done the least so far. It is checked again when you save.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }

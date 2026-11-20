@@ -29,6 +29,19 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.app.haven.domain.chore.titleCase
+import com.app.haven.domain.chore.ChoreScope
+import com.app.haven.domain.chore.NO_ELIGIBLE_MEMBER_MESSAGE
+import com.app.haven.domain.chore.pickAutomaticAssignee
+import com.app.haven.domain.chore.todayEpochDay
+import kotlin.random.Random
+import kotlinx.coroutines.Job
+
+// What the form shows under Automatic: who the algorithm would pick right now
+sealed interface AutoAssignPreview {
+    data object Loading : AutoAssignPreview
+    data class Chosen(val name: String) : AutoAssignPreview
+    data class Unavailable(val message: String) : AutoAssignPreview
+}
 
 // Used for both "Add chore" (choreId = null) and "Edit chore".
 // Only the add form keeps a draft on the phone, same as the add-expense form.
@@ -95,10 +108,52 @@ class AddChoreViewModel(
         viewModelScope.launch { drafts?.deleteDraft(householdId) }
     }
 
+    private sealed interface AutoChoice {
+        data class Picked(val uid: String, val name: String) : AutoChoice
+        data class Unavailable(val message: String) : AutoChoice
+    }
+
+    private val _autoPreview = MutableStateFlow<AutoAssignPreview>(AutoAssignPreview.Loading)
+    val autoPreview: StateFlow<AutoAssignPreview> = _autoPreview.asStateFlow()
+    private var previewJob: Job? = null
+
+    // One seed per form, so the preview and the save break a tie the same way while nothing has changed
+    private val tieSeed = Random.nextLong()
+
+    // Reads membership, history and workload fresh every time, never from an earlier result
+    private suspend fun chooseAutomatically(): AutoChoice {
+        val inputs = chores.loadAssignmentInputs(householdId).getOrElse {
+            return AutoChoice.Unavailable(it.friendlyMessage())
+        }
+        val picked = pickAutomaticAssignee(
+            members = inputs.members.sortedBy { it.uid },
+            completions = inputs.completions,
+            openChores = inputs.openChores,
+            today = todayEpochDay(),
+            random = Random(tieSeed)
+        ) ?: return AutoChoice.Unavailable(NO_ELIGIBLE_MEMBER_MESSAGE)
+        return AutoChoice.Picked(picked.uid, picked.name)
+    }
+
+    // The form calls this whenever Automatic is shown. Saving works it out again.
+    fun refreshAutoPreview() {
+        previewJob?.cancel()
+        previewJob = viewModelScope.launch {
+            _autoPreview.value = AutoAssignPreview.Loading
+            _autoPreview.value = when (val choice = chooseAutomatically()) {
+                is AutoChoice.Picked -> AutoAssignPreview.Chosen(choice.name)
+                is AutoChoice.Unavailable -> AutoAssignPreview.Unavailable(choice.message)
+            }
+        }
+    }
+
     // endEpochDay: the picked end date, 0 = no end date
+    // assignee: the manual pick (add) or the current assignee (edit). Ignored for personal and Automatic chores.
     fun save(
         title: String,
         category: String?,
+        scope: String,
+        autoAssign: Boolean,
         assignee: Member?,
         dueEpochDay: Long,
         repeatDays: Int,
@@ -107,33 +162,58 @@ class AddChoreViewModel(
         notes: String,
         onDone: () -> Unit
     ) {
-        validateChore(title, assignee?.uid, category)?.let { _error.value = it; return }
+        val base = _existing.value
+        val personal = (base?.scope ?: scope) == ChoreScope.PERSONAL
+        val automatic = base == null && !personal && autoAssign
+        // personal and Automatic chores get their assignee further down, so only a manual pick is checked here
+        val checkedUid = if (personal || automatic) myUid else assignee?.uid
+        validateChore(title, checkedUid, category)?.let { _error.value = it; return }
         validateEndDate(dueEpochDay, repeatDays, endEpochDay)?.let { _error.value = it; return }
         if (!_saving.compareAndSet(false, true)) return
-        val base = _existing.value
         val end = resolveEndEpochDay(repeatDays, endEpochDay)
         // keep a stored next turn only if its date is still allowed by the (possibly new) end date,
         // otherwise a shortened end date would leave a stale "Next: ..." behind
         val keepNext = base != null && repeatDays > 0 && isAllowedOccurrence(nextDueDay(dueEpochDay, repeatDays), end)
-        val chore = Chore(
-            id = base?.id ?: "",
-            title = titleCase(title),
-            category = ChoreCategory.fromKey(category).key,
-            notes = normalizeNotes(notes),
-            nextAssigneeUid = if (keepNext) base?.nextAssigneeUid.orEmpty() else "",
-            nextAssigneeName = if (keepNext) base?.nextAssigneeName.orEmpty() else "",
-            assigneeUid = assignee!!.uid,
-            assigneeName = assignee.displayName,
-            dueEpochDay = dueEpochDay,
-            repeatDays = repeatDays,
-            rotate = rotate,
-            endEpochDay = end,
-            done = base?.done ?: false,
-            completedByUid = base?.completedByUid,
-            completedByName = base?.completedByName,
-            lastCompletedEpochDay = base?.lastCompletedEpochDay ?: 0L
-        )
+
         viewModelScope.launch {
+            fun fail(message: String) { _saving.value = false; _error.value = message }
+
+            val target: Pair<String, String> = when {
+                personal -> {
+                    val name = members.value.firstOrNull { it.uid == myUid }?.displayName
+                        ?: base?.assigneeName.orEmpty()
+                    if (name.isBlank()) return@launch fail("Couldn't load your profile, please try again")
+                    myUid to name
+                }
+                automatic -> when (val choice = chooseAutomatically()) {
+                    is AutoChoice.Picked -> choice.uid to choice.name
+                    is AutoChoice.Unavailable -> return@launch fail(choice.message)
+                }
+                else -> assignee!!.uid to assignee.displayName
+            }
+            val (assigneeUid, assigneeName) = target
+
+            val chore = Chore(
+                id = base?.id ?: "",
+                title = titleCase(title),
+                category = ChoreCategory.fromKey(category).key,
+                notes = normalizeNotes(notes),
+                nextAssigneeUid = if (keepNext) base?.nextAssigneeUid.orEmpty() else "",
+                nextAssigneeName = if (keepNext) base?.nextAssigneeName.orEmpty() else "",
+                assigneeUid = assigneeUid,
+                assigneeName = assigneeName,
+                dueEpochDay = dueEpochDay,
+                repeatDays = repeatDays,
+                // a personal chore never takes turns: that would hand it to a roommate
+                rotate = rotate && !personal,
+                endEpochDay = end,
+                done = base?.done ?: false,
+                completedByUid = base?.completedByUid,
+                completedByName = base?.completedByName,
+                lastCompletedEpochDay = base?.lastCompletedEpochDay ?: 0L,
+                scope = if (personal) ChoreScope.PERSONAL else ChoreScope.HOUSEHOLD,
+                ownerUid = if (personal) myUid else ""
+            )
             val result = if (base == null) chores.addChore(householdId, chore)
             else chores.updateChore(householdId, chore)
             result
@@ -145,10 +225,7 @@ class AddChoreViewModel(
                     }
                     onDone()
                 }
-                .onFailure {
-                    _saving.value = false   // allow another try, entered values are untouched
-                    _error.value = it.friendlyMessage()
-                }
+                .onFailure { fail(it.friendlyMessage()) }   // allow another try, entered values are untouched
         }
     }
 
