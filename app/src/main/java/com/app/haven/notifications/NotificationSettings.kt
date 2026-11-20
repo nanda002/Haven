@@ -1,5 +1,4 @@
-//*AI assisstance was used in coding the notificaition settings
-
+//*AI assistance was used in coding the notification settings
 
 package com.app.haven.notifications
 
@@ -15,7 +14,7 @@ import androidx.core.content.edit
 fun notificationsEnabled(context: Context): Boolean =
     NotificationManagerCompat.from(context).areNotificationsEnabled()
 
-//opens Haven's notification page in the phone's Settings (used once the system dialog can't be shown anymore)
+//opens Haven's notification page in the phone's Settings
 fun openNotificationSettings(context: Context) {
     val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
@@ -26,12 +25,12 @@ fun openNotificationSettings(context: Context) {
     context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
-//small flags kept on this phone (not per user): whether Home already asked, and whether the system
-//dialog was ever shown (needed to tell "never asked" from "blocked" on Android 13+)
+//flags kept per device
 object NotificationPrefs {
     private const val FILE = "notification_prefs"
     private const val ASKED_ON_HOME = "asked_on_home"
     private const val REQUESTED_BEFORE = "requested_before"
+    private const val PUSH_ON = "push_on"
 
     private fun prefs(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -40,4 +39,7 @@ object NotificationPrefs {
 
     fun requestedBefore(context: Context) = prefs(context).getBoolean(REQUESTED_BEFORE, false)
     fun markRequested(context: Context) = prefs(context).edit { putBoolean(REQUESTED_BEFORE, true) }
+
+    fun pushOn(context: Context) = prefs(context).getBoolean(PUSH_ON, true)
+    fun setPushOn(context: Context, on: Boolean) = prefs(context).edit { putBoolean(PUSH_ON, on) }
 }

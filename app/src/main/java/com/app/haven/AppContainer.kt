@@ -21,8 +21,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.app.haven.actions.ChoreActions
 import com.app.haven.actions.ChoreRepository
-import com.app.haven.data.api.ProductLookupActions
-import com.app.haven.data.api.ProductLookupRepository
 
 // Manual dependency injection: the only place that knows about Room and Firebase.
 // It builds the data layer once; ViewModel factories take what they need from here,
@@ -45,7 +43,7 @@ class AppContainer(context: Context) {
     val settlementRepository: SettleExpenseActions = SettleExpenseRepository(localDb.settlementDao(), firestore)
     val expenseDraftRepository: ExpenseDraftActions = ExpenseDraftRepository(localDb.expenseDraftDao())
     val groceryItemRepository: GroceryItemActions = GroceryItemRepository(firestore)
-    val pushTokenRepository: PushTokenActions = PushTokenRepository(auth, firestore)
+    val pushTokenRepository: PushTokenActions = PushTokenRepository(auth, firestore, pushOn = { NotificationPrefs.pushOn(context) })
     val productLookupRepository: ProductLookupActions = ProductLookupRepository()
 
     // on logout: remove the household's local copy and unsaved drafts, so the next user on this phone doesn't see them

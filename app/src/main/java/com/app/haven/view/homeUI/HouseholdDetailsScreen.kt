@@ -58,8 +58,6 @@ fun HouseholdDetailsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         PageHeader("Household details", onBack)
-        //notifications on/off, with a button to change it
-        NotificationsCard()
 
         when {
             ui.loading -> CircularProgressIndicator()
@@ -87,6 +85,10 @@ fun HouseholdDetailsScreen(
                 leaveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         }
+        //notifications on/off, with a button to change it
+        Spacer(Modifier.height(12.dp))
+        NotificationsCard()
+        Spacer(Modifier.height(12.dp))
     }
 }
 

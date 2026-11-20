@@ -1,13 +1,13 @@
 /**
  * Haven's Cloud Functions: server code that runs on Google's servers, not on
  * the phones. The app never calls these directly; they react to changes in
- * Firestore.
+ * Firestore
  *
- * notifyOnNewExpense: when an expense is added, push a notification to the
+ * notifyOnNewExpense - when an expense is added, push a notification to the
  * other members in its split.
- * notifyOnUpdateExpense: when an expense's description, amount, payer or split
+ * notifyOnUpdateExpense - when an expense's description, amount, payer or split
  * changes, notify everyone who was or is in the split (except the payer).
- * notifyOnNewSettlement: when a payment is recorded, notify the other person.
+ * notifyOnNewSettlement - when a payment is recorded, notify the other person.
  */
 
 const {setGlobalOptions} = require("firebase-functions");
@@ -20,7 +20,7 @@ const {initializeApp} = require("firebase-admin/app");
 const {getFirestore, FieldValue} = require("firebase-admin/firestore");
 const {getMessaging} = require("firebase-admin/messaging");
 
-// server access to the project; no key file needed when running on Firebase
+// server access to the project
 initializeApp();
 
 setGlobalOptions({region: "us-central1", maxInstances: 10});
@@ -32,15 +32,6 @@ const DEAD_TOKEN_ERRORS = [
 
 const money = (cents) => `$${(cents / 100).toFixed(2)}`;
 
-/**
- * Shared notification logic for creating and updating expenses.
- * @param {Object} params
- * @param {string} params.householdId household the expense belongs to
- * @param {string} params.expenseId the expense's document id (for the logs)
- * @param {Object} params.expense the expense data (after the change)
- * @param {string[]} params.recipientUids users to notify
- * @param {string} params.action "added" or "updated", used in the title
- */
 async function sendExpenseNotifications({
   householdId,
   expenseId,
@@ -207,7 +198,7 @@ exports.notifyOnUpdateExpense = onDocumentUpdated(
       if (!expenseChanged && !sharesChanged) return;
 
       // Include old and new participants so removed members
-      // are also informed about the change.
+      // are also informed about the change
       const recipients = allUids.filter(
           (uid) => uid !== after.paidByUid,
       );

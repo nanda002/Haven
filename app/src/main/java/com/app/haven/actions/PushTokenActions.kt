@@ -18,13 +18,16 @@ interface PushTokenActions {
 class PushTokenRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val messaging: FirebaseMessaging = FirebaseMessaging.getInstance()
+    private val messaging: FirebaseMessaging = FirebaseMessaging.getInstance(),
+    private val pushOn: () -> Boolean = { true }
 ) : PushTokenActions {
 
     private fun userDoc(uid: String) = db.collection("users").document(uid)
 
     override suspend fun saveToken(): Result<Unit> = runCatching {
         val uid = auth.currentUser?.uid ?: error("Not signed in")
+        if (!pushOn()) return@runCatching
+        @Suppress("DEPRECATION")
         val token = messaging.token.await()
         //using arrayUnion to add to array of values
         userDoc(uid).update("fcmTokens", FieldValue.arrayUnion(token))

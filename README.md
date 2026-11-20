@@ -47,6 +47,16 @@ Haven requires a `google-services.json` file to connect to Firebase.
 5. Find the **SDK setup and configuration** section and download `google-services.json`.
 6. Place the downloaded file directly inside the project's `app/` directory.
 
+## Notifications
+
+1. Navigate to the functions folder in Haven: 'cd functions'
+2. For deployment, run,
+   - npm install -g firebase-tools
+   - firebase login
+   - firebase projects:list
+   - firebase init functions
+   - firebase deploy --only functions
+
 The final location should be:
 
 ```text

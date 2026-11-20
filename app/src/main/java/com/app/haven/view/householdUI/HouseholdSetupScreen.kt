@@ -10,6 +10,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.app.haven.domain.InputLimits
+import com.app.haven.view.common.LimitedTextField
 import com.app.haven.viewmodel.household.HouseholdViewModel
 
 private enum class SetupMode { CHOOSE, CREATE, JOIN }
@@ -58,11 +60,16 @@ fun HouseholdSetupScreen(
             }
 
             SetupMode.JOIN -> {
-                OutlinedTextField(code, { code = it.uppercase() }, label = { Text("Invite code") },
-                    singleLine = true,
+                LimitedTextField(
+                    value = code,
+                    onValueChange = { code = it.uppercase().filter { c -> c.isLetterOrDigit() } },
+                    maxLength = InputLimits.INVITE_CODE,
+                    label = "Invite code",
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                    modifier = Modifier.fillMaxWidth())
+                    modifier = Modifier.fillMaxWidth()
+                )
                 FormFooter(ui.error, ui.loading, "Join",
+                    enabled = code.length == InputLimits.INVITE_CODE,
                     onSubmit = { vm.join(code, onDone) },
                     onBack = { mode = SetupMode.CHOOSE; vm.clearError() })
             }
@@ -71,13 +78,20 @@ fun HouseholdSetupScreen(
 }
 
 @Composable
-private fun FormFooter(error: String?, loading: Boolean, label: String, onSubmit: () -> Unit, onBack: () -> Unit) {
+private fun FormFooter(
+    error: String?,
+    loading: Boolean,
+    label: String,
+    onSubmit: () -> Unit,
+    onBack: () -> Unit,
+    enabled: Boolean = true
+) {
     error?.let {
         Spacer(Modifier.height(8.dp))
         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
     Spacer(Modifier.height(16.dp))
-    Button(onSubmit, Modifier.fillMaxWidth(), enabled = !loading) {
+    Button(onSubmit, Modifier.fillMaxWidth(), enabled = !loading && enabled) {
         if (loading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Text(label)
     }
     TextButton(onBack) { Text("Back") }

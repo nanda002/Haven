@@ -22,7 +22,9 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.app.haven.domain.InputLimits
 import com.app.haven.domain.grocerylist.GroceryItem
+import com.app.haven.view.common.LimitedTextField
 import com.app.haven.viewmodel.groceryitem.MainGroceryItemViewModel
 
 //Gets the ViewModel and passes its state and events into the screen below.
@@ -92,7 +94,12 @@ fun MainGroceryItemScreen(
             onDismissRequest = { editing = null },
             title = { Text("Edit item") },
             text = {
-                OutlinedTextField(newName, { newName = it }, singleLine = true, label = { Text("Item") })
+                LimitedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    maxLength = InputLimits.ITEM,
+                    label = "Item"
+                )
             },
             confirmButton = {
                 TextButton({ onRename(item, newName); editing = null }, enabled = newName.isNotBlank()) { Text("Save") }
@@ -128,11 +135,11 @@ fun MainGroceryItemScreen(
 
         //add bar: type an item, then tap + or the keyboard's Done to add it; the keyboard stays open for the next one
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
+            LimitedTextField(
                 value = text,
                 onValueChange = { text = it },
-                label = { Text("Add an item") },
-                singleLine = true,
+                maxLength = InputLimits.ITEM,
+                label = "Add an item",
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Sentences,
                     imeAction = ImeAction.Done
@@ -158,7 +165,7 @@ fun MainGroceryItemScreen(
                 //partition separates the items in the list
                 //into two groups based on the condition !it.bought
                 val (toBuy, bought) = items.partition { !it.bought }
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(toBuy, key = { it.id }) { item ->
                         GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
                     }
