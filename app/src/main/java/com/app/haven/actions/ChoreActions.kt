@@ -19,6 +19,25 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import com.app.haven.data.model.ChoreCompletionDoc
+import com.app.haven.data.model.Member
+import com.app.haven.domain.chore.HouseholdMember
+import com.app.haven.domain.chore.VacationPeriod
+import com.app.haven.domain.chore.epochDayOfMillis
+import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.QuerySnapshot
+import com.google.firebase.firestore.Source
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
+
+
+// What the assignment logic needs, read at the moment a chore is saved
+data class AssignmentInputs(
+    val members: List<HouseholdMember>,
+    val completions: List<ChoreCompletion>,
+    val openChores: List<Chore>
+)
+
 
 interface ChoreActions {
     fun getChores(householdId: String, myUid: String): Flow<List<Chore>>
@@ -27,6 +46,7 @@ interface ChoreActions {
     suspend fun deleteChore(householdId: String, chore: Chore): Result<Unit>
     suspend fun recordCompletion(householdId: String, completion: ChoreCompletion): Result<Unit>
     suspend fun removeCompletion(householdId: String, completionId: String): Result<Unit>
+    suspend fun loadAssignmentInputs(householdId: String): Result<AssignmentInputs>
 }
 
 // Shared chores live in households/{id}/chores. Personal chores live in their own collection,
@@ -121,4 +141,43 @@ class ChoreRepository(
                 .addOnFailureListener { Log.e("Chore Repo", "completion removal failed on the server") }
             Unit
         }
+
+    // Reads membership, history and open chores again from the server (this phone's copy when offline or slow)
+    override suspend fun loadAssignmentInputs(householdId: String): Result<AssignmentInputs> =
+        runCatching {
+            val today = todayEpochDay()
+            val members = household(householdId).collection("members")
+                .whereEqualTo("active", true).latest()
+                .toObjects(Member::class.java)
+                .map { m ->
+                    // finished vacations plus the one still going, so participation can be worked out for any day
+                    val periods = m.vacationPeriods.map { VacationPeriod(it.startEpochDay, it.endEpochDay) } +
+                            if (m.vacation) listOf(VacationPeriod(m.vacationStartEpochDay)) else emptyList()
+                    HouseholdMember(
+                        uid = m.uid,
+                        name = m.displayName,
+                        joinedEpochDay = m.joinedAt?.let { epochDayOfMillis(it.time) } ?: today,
+                        active = m.active,
+                        onVacation = m.vacation,
+                        vacationPeriods = periods
+                    )
+                }
+            val history = completions(householdId).latest()
+                .toObjects(ChoreCompletionDoc::class.java).map { it.toDomain() }
+            val open = householdChores(householdId).latest()
+                .toObjects(ChoreDoc::class.java)
+                .map { resolveOccurrence(it.toDomain(), today) }
+                .filter { !it.done }
+            AssignmentInputs(members, history, open)
+        }
+
+    // The newest data from the server, or this phone's copy if offline or the server is slow
+    private suspend fun Query.latest(): QuerySnapshot {
+        val fromServer = try {
+            withTimeoutOrNull(4_000) { get(Source.SERVER).await() }
+        } catch (e: FirebaseFirestoreException) {
+            null
+        }
+        return fromServer ?: get(Source.CACHE).await()
+    }
 }
