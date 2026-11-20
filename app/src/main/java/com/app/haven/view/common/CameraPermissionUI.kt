@@ -38,7 +38,7 @@ fun CameraCard() {
     var enabled by remember { mutableStateOf(cameraEnabled(context)) }
     var blocked by remember { mutableStateOf(false) }
 
-    //check again whenever the user navigates to the household screen
+    //check again whenever the user navigates to the household details screen
     LifecycleResumeEffect(Unit) {
         enabled = cameraEnabled(context)
         onPauseOrDispose { }
@@ -59,7 +59,7 @@ fun CameraCard() {
                     "You can scan barcodes to add items to the grocery list.",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                //only the phone's Settings can turn them off again
+                //only the phone's settings can turn them off again
                 OutlinedButton(onClick = { openAppSettings(context) }) { Text("Camera settings") }
                 return@Column
             }
