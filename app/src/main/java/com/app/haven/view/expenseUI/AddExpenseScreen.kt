@@ -15,7 +15,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.app.haven.domain.InputLimits
 import com.app.haven.domain.expense.ExpenseCategory
+import com.app.haven.view.common.LimitedTextField
 import com.app.haven.viewmodel.expense.AddExpenseViewModel
 import com.app.haven.viewmodel.expense.ExpensePrefill
 import com.app.haven.viewmodel.expense.SaveStatus
@@ -63,14 +65,25 @@ fun AddExpenseScreen(
             Text("Restored your unsaved draft", style = MaterialTheme.typography.bodySmall)
         }
 
-        OutlinedTextField(s.description, vm::onDescriptionChanged, label = { Text("Description") },
-            singleLine = true, modifier = Modifier.fillMaxWidth())
-        s.descriptionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        LimitedTextField(
+            value = s.description,
+            onValueChange = vm::onDescriptionChanged,
+            maxLength = InputLimits.EXPENSE_DESC,
+            label = "Description",
+            error = s.descriptionError,
+            modifier = Modifier.fillMaxWidth()
+        )
 
-        OutlinedTextField(s.amountText, vm::onAmountChanged, label = { Text("Amount ($)") }, singleLine = true,
+        LimitedTextField(
+            value = s.amountText,
+            onValueChange = vm::onAmountChanged,
+            maxLength = InputLimits.AMOUNT,
+            label = "Amount ($)",
+            showCounter = false,
+            error = s.amountError,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.fillMaxWidth())
-        s.amountError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Text("Category")
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -102,10 +115,15 @@ fun AddExpenseScreen(
                     s.evenShares[m.uid]?.let { Text(it.money()) }
                 }
             } else {
-                OutlinedTextField(s.customAmountTexts[m.uid] ?: "", { vm.onCustomAmountChanged(m.uid, it) },
-                    label = { Text(m.name) }, singleLine = true,
+                LimitedTextField(
+                    value = s.customAmountTexts[m.uid] ?: "",
+                    onValueChange = { vm.onCustomAmountChanged(m.uid, it) },
+                    maxLength = InputLimits.AMOUNT,
+                    label = m.name,
+                    showCounter = false,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth())
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
         s.remainingCents?.let { Text("Left to assign: ${it.money()}") }
