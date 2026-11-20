@@ -16,6 +16,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.app.haven.actions.chores.ChoreActions
+import com.app.haven.actions.chores.ChoreTransferActions
+import com.app.haven.actions.chores.ChoreTransferRepository
 import com.app.haven.actions.chores.ChoreRepository
 import com.app.haven.actions.chores.ChoreDraftActions
 import com.app.haven.actions.chores.ChoreDraftRepository
@@ -30,6 +32,7 @@ class AppContainer(context: Context) {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     val choreRepository: ChoreActions = ChoreRepository(firestore)
+    val choreTransferRepository: ChoreTransferActions = ChoreTransferRepository(firestore)
 
     private val storage = FirebaseStorage.getInstance()
 
