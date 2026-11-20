@@ -1,5 +1,6 @@
 package com.app.haven
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,6 +18,8 @@ import com.app.haven.ui.theme.HavenTheme
 import com.app.haven.view.authUI.AuthScreen
 import com.app.haven.view.householdUI.HouseholdSetupScreen
 import com.app.haven.navigation.MainScaffold
+import com.app.haven.notifications.EXTRA_NOTIFICATION_TYPE
+import com.app.haven.notifications.TYPE_EXPENSE
 import com.app.haven.viewmodel.SessionState
 import com.app.haven.viewmodel.SessionViewModel
 import androidx.compose.runtime.mutableStateOf
@@ -26,21 +29,42 @@ import com.app.haven.view.authUI.WelcomeScreen
 import androidx.activity.compose.BackHandler
 
 class MainActivity : ComponentActivity() {
+
+    //true after tapping an expense notification
+    private var openLedger by mutableStateOf(false)
+
+    //if the app is closed, and the user taps on an expense notification
+    //we want the user to be led to the ledger tab
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (savedInstanceState == null) openLedger = intent.isExpenseNotification()
         setContent {
             HavenTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    HavenApp()
+                    HavenApp(openLedger = openLedger, onLedgerOpened = { openLedger = false })
                 }
             }
         }
     }
+
+    //app was already open when the notification was tapped
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.isExpenseNotification()) openLedger = true
+    }
 }
 
+private fun Intent.isExpenseNotification() = getStringExtra(EXTRA_NOTIFICATION_TYPE) == TYPE_EXPENSE
+
 @Composable
-fun HavenApp(vm: SessionViewModel = viewModel(factory = SessionViewModel.Factory)) {
+fun HavenApp(
+    //from tapping an expense notification: open the Ledger tab once the main app shows
+    openLedger: Boolean = false,
+    onLedgerOpened: () -> Unit = {},
+    vm: SessionViewModel = viewModel(factory = SessionViewModel.Factory)
+) {
     val state by vm.state.collectAsStateWithLifecycle()
 
     when (val s = state) {
@@ -60,7 +84,12 @@ fun HavenApp(vm: SessionViewModel = viewModel(factory = SessionViewModel.Factory
             }
         }
         SessionState.NeedsHousehold -> HouseholdSetupScreen(onDone = vm::refresh, onLogout = vm::logOut)
-        SessionState.InHousehold -> MainScaffold(onLogout = vm::logOut, onLeftHousehold = vm::onLeftHousehold)
+        SessionState.InHousehold -> MainScaffold(
+            onLogout = vm::logOut,
+            onLeftHousehold = vm::onLeftHousehold,
+            openLedger = openLedger,
+            onLedgerOpened = onLedgerOpened
+        )
         is SessionState.Error -> Column(
             Modifier.fillMaxSize().padding(24.dp),
             verticalArrangement = Arrangement.Center,

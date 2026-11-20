@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.app.haven.view.common.AskForNotificationsOnce
 import com.app.haven.viewmodel.home.HomeBalanceViewModel
 import com.app.haven.viewmodel.home.HomeViewModel
 import com.app.haven.viewmodel.home.HomeChoresViewModel
@@ -45,6 +46,8 @@ fun HomeScreen(
                 Button({ vm.load() }) { Text("Retry") }
             }
             else -> ui.household?.let { h ->
+                //notification permission pop up for the user
+                AskForNotificationsOnce()
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box {
                         IconButton(onClick = { menuOpen = true }) {

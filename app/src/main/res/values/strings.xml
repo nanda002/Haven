@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Haven</string>
+
+    <!-- notification channels (shown to the user in the phone's notification settings) -->
+    <string name="channel_expenses_id" translatable="false">expenses</string>
+    <string name="channel_expenses_name">Household activity</string>
+    <string name="channel_expenses_description">Expenses you\'re part of and payments between you and your roommates</string>
 </resources>
