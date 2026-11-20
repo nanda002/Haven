@@ -89,8 +89,12 @@ object ChoreScope {
 fun todayEpochDay(nowMillis: Long = System.currentTimeMillis(), tz: TimeZone = TimeZone.getDefault()): Long =
     (nowMillis + tz.getOffset(nowMillis)) / 86_400_000L
 
-// The local calendar day a moment falls on
-fun epochDayOfMillis(millis: Long, tz: TimeZone = TimeZone.getDefault()): Long =
+
+// The local calendar day a moment falls on.
+fun epochDayOfMillis(
+    millis: Long,
+    tz: TimeZone = TimeZone.getDefault()
+): Long =
     (millis + tz.getOffset(millis)) / 86_400_000L
 
 

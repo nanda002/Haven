@@ -16,6 +16,7 @@ data class Member(
 )
 
 // a finished vacation, stored as local epoch days
+
 data class VacationPeriodDoc(
     val startEpochDay: Long = 0L,
     val endEpochDay: Long = 0L
