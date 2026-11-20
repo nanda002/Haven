@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import com.app.haven.domain.chore.Chore
 import com.app.haven.domain.chore.dueLabel
 import com.app.haven.domain.chore.todayEpochDay
+import com.app.haven.view.choreUI.amberTextColor
 
 // Dashboard card: my chores due now or within the week (only shown when there are some). Tap -> Chores tab
 @Composable
@@ -30,7 +31,7 @@ fun HomeChoresCard(chores: List<Chore>, onClick: () -> Unit) {
                     Text(
                         c.dueLabel(today),
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (c.dueEpochDay < today) MaterialTheme.colorScheme.error
+                        color = if (c.dueEpochDay < today) amberTextColor()
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

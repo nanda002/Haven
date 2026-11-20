@@ -14,6 +14,8 @@ import com.app.haven.domain.chore.completeChore
 import com.app.haven.domain.chore.completionBlockedMessage
 import com.app.haven.domain.chore.reopen
 import com.app.haven.domain.chore.todayEpochDay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +24,9 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.app.haven.domain.chore.ChoreCompletion
+import com.app.haven.domain.chore.ChoreScope
+import com.app.haven.domain.chore.completionId
 
 sealed interface ChoresUiState {
     data object Loading : ChoresUiState
@@ -48,7 +53,7 @@ class ChoresViewModel(
         .map { list -> list.map { it.uid }.toSet() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
-    val uiState: StateFlow<ChoresUiState> = chores.getChores(householdId)
+    val uiState: StateFlow<ChoresUiState> = chores.getChores(householdId, myUid)
         .map<List<Chore>, ChoresUiState> { list ->
             if (list.isEmpty()) ChoresUiState.Empty
             else ChoresUiState.Success(list.sortedWith(compareBy({ it.done }, { it.dueEpochDay })), todayEpochDay())
@@ -60,41 +65,66 @@ class ChoresViewModel(
     val error: StateFlow<String?> = _error.asStateFlow()
     fun onErrorShown() { _error.value = null }
 
-    // the chore as it was before the last "mark done", so the snackbar can offer Undo
+    // the chore exactly as it was before the last "mark done". Memory only, one slot, gone after the window
     private val _undo = MutableStateFlow<Chore?>(null)
     val undo: StateFlow<Chore?> = _undo.asStateFlow()
-    fun onUndoShown() { _undo.value = null }
+
+    private var undoTimer: Job? = null
+    private var completionWrite: Job? = null
 
     fun onToggleDone(chore: Chore) {
         val today = todayEpochDay()
-        val updated = if (chore.done) {
-            chore.reopen()
-        } else {
-            completionBlockedMessage(chore, myUid, today)?.let { _error.value = it; return }
-            val me = members.value.firstOrNull { it.uid == myUid } ?: Assignee(myUid, "Someone")
-            completeChore(chore, members.value, me, today)
-        }
+        val me = members.value.firstOrNull { it.uid == myUid } ?: Assignee(myUid, "Someone")
+        val updated = if (chore.done) chore.reopen() else completeChore(chore, members.value, me, today)
         viewModelScope.launch {
             chores.updateChore(householdId, updated)
-                .onSuccess { if (!chore.done) _undo.value = chore }
+                .onSuccess {
+                    if (!chore.done) _undo.value = chore
+                    // Contribution history: only shared household chores count, one record per occurrence,
+                    // and the credit goes to whoever ticked it, not to the assignee.
+                    if (chore.scope == ChoreScope.HOUSEHOLD) {
+                        if (chore.done) {
+                            chores.removeCompletion(householdId, completionId(chore.id, chore.dueEpochDay))
+                        } else {
+                            chores.recordCompletion(
+                                householdId,
+                                ChoreCompletion(
+                                    id = completionId(chore.id, chore.dueEpochDay),
+                                    choreId = chore.id,
+                                    choreTitle = chore.title,
+                                    completedByUid = me.uid,
+                                    completedByName = me.name,
+                                    assignedToUid = chore.assigneeUid,
+                                    dueEpochDay = chore.dueEpochDay,
+                                    completedEpochDay = today
+                                )
+                            )
+                        }
+                    }
+                }
                 .onFailure { _error.value = it.friendlyMessage() }
         }
     }
 
-    // put the chore back exactly as it was (assignee, due date, who did it last)
+    // put the chore back exactly as it was, and take the undone completion out of the history
     fun onUndo(previous: Chore) {
         viewModelScope.launch {
             chores.updateChore(householdId, previous).onFailure { _error.value = it.friendlyMessage() }
+            if (previous.scope == ChoreScope.HOUSEHOLD) {
+                chores.removeCompletion(householdId, completionId(previous.id, previous.dueEpochDay))
+            }
         }
     }
 
-    fun onDelete(choreId: String) {
+    fun onDelete(chore: Chore) {
         viewModelScope.launch {
-            chores.deleteChore(householdId, choreId).onFailure { _error.value = it.friendlyMessage() }
+            chores.deleteChore(householdId, chore).onFailure { _error.value = it.friendlyMessage() }
         }
     }
 
     companion object {
+        const val UNDO_WINDOW_MS = 10_000L
+
         fun factory(householdId: String, myUid: String) = viewModelFactory {
             initializer {
                 val c = appContainer()

@@ -40,22 +40,22 @@ fun ChoresScreen(
     val memberUids by vm.memberUids.collectAsStateWithLifecycle()
     val undo by vm.undo.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val undoSnackbar = remember { SnackbarHostState() }
     var pendingDelete by remember { mutableStateOf<Chore?>(null) }
 
     LaunchedEffect(error) {
         error?.let { snackbar.showSnackbar(it); vm.onErrorShown() }
     }
 
-    // after "mark done": offer to put the chore back as it was
+    // after "mark done": shown until the ViewModel's 10 second window ends (it clears undo then)
     LaunchedEffect(undo) {
         undo?.let { previous ->
-            val result = snackbar.showSnackbar(
+            val result = undoSnackbar.showSnackbar(
                 message = "\"${previous.title}\" marked done",
                 actionLabel = "Undo",
-                duration = SnackbarDuration.Short
+                duration = SnackbarDuration.Indefinite
             )
             if (result == SnackbarResult.ActionPerformed) vm.onUndo(previous)
-            vm.onUndoShown()
         }
     }
 
@@ -65,7 +65,7 @@ fun ChoresScreen(
             title = { Text("Delete chore?") },
             text = { Text("\"${c.title}\" will be removed for everyone in the household.") },
             confirmButton = {
-                TextButton({ vm.onDelete(c.id); pendingDelete = null }) {
+                TextButton({ vm.onDelete(c); pendingDelete = null }) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             },
@@ -77,7 +77,12 @@ fun ChoresScreen(
         contentWindowInsets = WindowInsets(0),
         containerColor = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = {
+            Column {
+                SnackbarHost(undoSnackbar)
+                SnackbarHost(snackbar)
+            }
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onAddChore,
@@ -132,10 +137,11 @@ private fun ChoreRow(
     onDelete: () -> Unit
 ) {
     var expanded by rememberSaveable(chore.id) { mutableStateOf(false) }
-    val overdue = chore.status(today) == ChoreStatus.OVERDUE
+    val status = chore.status(today)
+    val overdue = status == ChoreStatus.OVERDUE
     val subtitle = listOfNotNull(
         if (orphaned) "Needs a new assignee" else chore.assigneeName,
-        chore.dueLabel(today).takeUnless { chore.done },
+        chore.dueLabel(today),
         repeatLabel(chore.repeatDays)
     ).joinToString(" · ")
     val lastDone = chore.lastDoneLabel(today)
@@ -144,12 +150,15 @@ private fun ChoreRow(
     ElevatedCard(
         onClick = { expanded = !expanded },
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            containerColor = choreContainerColor(status),
             contentColor = MaterialTheme.colorScheme.onSurface
         )
     ) {
         Row(Modifier.fillMaxWidth().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = chore.done, onCheckedChange = { onToggle() })
+            Checkbox(
+                checked = chore.done,
+                onCheckedChange = if (chore.done) null else ({ _: Boolean -> onToggle() })
+            )
             Icon(
                 category.icon,
                 contentDescription = category.label,
@@ -165,7 +174,7 @@ private fun ChoreRow(
                 Text(
                     subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (overdue || orphaned) MaterialTheme.colorScheme.error
+                    color = if (overdue || orphaned) amberTextColor()
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 lastDone?.let {

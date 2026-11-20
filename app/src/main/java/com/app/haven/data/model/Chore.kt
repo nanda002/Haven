@@ -5,6 +5,7 @@ import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 import com.app.haven.domain.chore.ChoreCategory
 import com.app.haven.domain.chore.Chore as DomainChore
+import com.app.haven.domain.chore.ChoreScope
 
 data class Chore(
     @DocumentId val id: String = "",
@@ -23,6 +24,8 @@ data class Chore(
     val notes: String = "",
     val nextAssigneeUid: String = "",
     val nextAssigneeName: String = "",
+    val scope: String = "household",
+    val ownerUid: String = "",
     @ServerTimestamp val createdAt: Date? = null
 )
 
@@ -33,7 +36,9 @@ fun Chore.toDomain() = DomainChore(
     lastCompletedEpochDay = lastCompletedEpochDay,
     category = ChoreCategory.fromKey(category).key,   // unknown key -> "other", never crashes
     notes = notes,
-    nextAssigneeUid = nextAssigneeUid, nextAssigneeName = nextAssigneeName
+    nextAssigneeUid = nextAssigneeUid, nextAssigneeName = nextAssigneeName ,
+    scope = if (scope == ChoreScope.PERSONAL) ChoreScope.PERSONAL else ChoreScope.HOUSEHOLD,
+    ownerUid = ownerUid
 )
 
 fun DomainChore.toData() = Chore(

@@ -37,7 +37,7 @@ fun AddChoreScreen(
     myUid: String,
     onDone: () -> Unit,
     choreId: String? = null,
-    vm: AddChoreViewModel = viewModel(factory = AddChoreViewModel.factory(householdId, choreId))
+    vm: AddChoreViewModel = viewModel(factory = AddChoreViewModel.factory(householdId, myUid, choreId))
 ) {
     val loading by vm.loading.collectAsStateWithLifecycle()
     val existing by vm.existing.collectAsStateWithLifecycle()
@@ -174,7 +174,7 @@ private fun ChoreForm(
                 Text("Restored your unsaved draft", style = MaterialTheme.typography.bodySmall)
             }
 
-            FormSection("What needs doing") {
+            FormSection("Chore Details") {
                 OutlinedTextField(
                     value = form.title,
                     onValueChange = { form.title = it },
@@ -191,7 +191,7 @@ private fun ChoreForm(
                 CategoryPicker(selectedKey = form.categoryKey, onSelect = { form.categoryKey = it })
             }
 
-            FormSection("Who and when") {
+            FormSection("Who & When") {
                 FieldLabel("Assign to")
                 Row(
                     Modifier.horizontalScroll(rememberScrollState()),
@@ -221,7 +221,7 @@ private fun ChoreForm(
                     )
                 }
 
-                FieldLabel("When should this begin?")
+                FieldLabel("When Should This Begin?")
                 CardRow {
                     ChoiceCard("Today", dueDay == today, { form.dueOffset = 0 }, Modifier.weight(1f).fillMaxHeight())
                     ChoiceCard("Tomorrow", dueDay == today + 1, { form.dueOffset = 1 }, Modifier.weight(1f).fillMaxHeight())
@@ -260,7 +260,7 @@ private fun ChoreForm(
 
             // one-time chores never take turns and have no end date, so these only show for repeating chores
             if (form.repeatDays > 0) {
-                FormSection("Take turns between roommates") {
+                FormSection("Take Turns Between Roommates") {
                     CardRow {
                         ChoiceCard(
                             "Take turns", form.rotate, { form.rotate = true },
@@ -281,7 +281,7 @@ private fun ChoreForm(
                     )
                 }
 
-                FormSection("When should this chore stop repeating?") {
+                FormSection("When Should This Chore Stop Repeating?") {
                     CardRow {
                         ChoiceCard("No end date", form.endDay == 0L, { form.endDay = 0L }, Modifier.weight(1f).fillMaxHeight())
                         ChoiceCard(

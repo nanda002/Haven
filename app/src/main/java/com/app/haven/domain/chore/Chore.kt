@@ -21,7 +21,9 @@ data class Chore(
     val category: String = "other",         // stable key, see ChoreCategory
     val notes: String = "",
     val nextAssigneeUid: String = "",   // set when a repeating occurrence is completed: who gets the next scheduled date
-    val nextAssigneeName: String = ""   // blank = nothing scheduled after this one (one-off or final occurrence)
+    val nextAssigneeName: String = "",
+    val scope: String = ChoreScope.HOUSEHOLD,   // "household" or "personal", stored explicitly so it can be filtered
+    val ownerUid: String = ""                    // personal chores only: the one person who can see it
 )
 
 data class Assignee(val uid: String, val name: String, val joinedAtMillis: Long = Long.MAX_VALUE)
@@ -70,6 +72,11 @@ const val CHORE_NOTES_MAX = 300
 fun normalizeNotes(raw: String): String = raw.trim().take(CHORE_NOTES_MAX)
 enum class ChoreStatus { DONE, OVERDUE, DUE_TODAY, UPCOMING }
 
+object ChoreScope {
+    const val HOUSEHOLD = "household"
+    const val PERSONAL = "personal"
+}
+
 fun todayEpochDay(nowMillis: Long = System.currentTimeMillis(), tz: TimeZone = TimeZone.getDefault()): Long =
     (nowMillis + tz.getOffset(nowMillis)) / 86_400_000L
 
@@ -103,13 +110,28 @@ fun Chore.status(today: Long): ChoreStatus = when {
     else -> ChoreStatus.UPCOMING
 }
 
+// "Wednesday". Epoch days are calendar days, so format in UTC
+fun weekdayName(epochDay: Long, locale: Locale = Locale.getDefault()): String {
+    val f = SimpleDateFormat("EEEE", locale)
+    f.timeZone = TimeZone.getTimeZone("UTC")
+    return f.format(Date(epochDay * 86_400_000L))
+}
+
 fun Chore.dueLabel(today: Long): String {
     val days = dueEpochDay - today
     return when (status(today)) {
-        ChoreStatus.DONE -> "Done"
+        ChoreStatus.DONE -> when {
+            today - lastCompletedEpochDay <= 0L -> "Done today"
+            today - lastCompletedEpochDay == 1L -> "Done yesterday"
+            else -> "Done"
+        }
         ChoreStatus.OVERDUE -> if (-days == 1L) "Overdue by 1 day" else "Overdue by ${-days} days"
         ChoreStatus.DUE_TODAY -> "Due today"
-        ChoreStatus.UPCOMING -> if (days == 1L) "Due tomorrow" else "Due in $days days"
+        ChoreStatus.UPCOMING -> when {
+            days == 1L -> "Due tomorrow"
+            days < 7L -> "Due ${weekdayName(dueEpochDay)}"
+            else -> "Due ${formatEpochDay(dueEpochDay)}"
+        }
     }
 }
 
@@ -121,16 +143,17 @@ fun repeatLabel(repeatDays: Int): String? = when {
     else -> "Repeats every $repeatDays days"
 }
 
-// "Done by Sam today" (finished) / "Last done by Sam yesterday" (repeating, still going)
+// "Completed by Sam" (finished) / "Last done by Sam yesterday" (repeating, still going)
 fun Chore.lastDoneLabel(today: Long): String? {
     val by = completedByName ?: return null
+    if (done) return "Completed by $by"
     val ago = today - lastCompletedEpochDay
     val whenText = when {
         ago <= 0L -> "today"
         ago == 1L -> "yesterday"
         else -> "$ago days ago"
     }
-    return (if (done) "Done by " else "Last done by ") + "$by $whenText"
+    return "Last done by $by $whenText"
 }
 
 // STABLE ORDER: when each roommate joined the household (joinedAt), uid only as a tie-break.

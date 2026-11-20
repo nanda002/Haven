@@ -21,7 +21,7 @@ class HomeChoresViewModel(
     myUid: String
 ) : ViewModel() {
 
-    val myChores: StateFlow<List<Chore>> = chores.getChores(householdId)
+    val myChores: StateFlow<List<Chore>> = chores.getChores(householdId, myUid)
         .map { list ->
             val today = todayEpochDay()
             list.filter { !it.done && it.assigneeUid == myUid && it.dueEpochDay <= today + 7 }

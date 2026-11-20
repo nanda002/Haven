@@ -35,6 +35,7 @@ class AddChoreViewModel(
     private val chores: ChoreActions,
     households: HouseholdActions,
     private val householdId: String,
+    private val myUid: String,
     private val choreId: String?,
     private val drafts: ChoreDraftActions? = null
 ) : ViewModel() {
@@ -71,7 +72,7 @@ class AddChoreViewModel(
         viewModelScope.launch {
             if (choreId != null) {
                 _existing.value = runCatching {
-                    chores.getChores(householdId).first().firstOrNull { it.id == choreId }
+                    chores.getChores(householdId, myUid).first().firstOrNull { it.id == choreId }
                 }.getOrNull()
             } else {
                 _restoredDraft.value = runCatching { drafts?.loadDraft(householdId) }.getOrNull()
@@ -151,10 +152,12 @@ class AddChoreViewModel(
     }
 
     companion object {
-        fun factory(householdId: String, choreId: String?) = viewModelFactory {
+        fun factory(householdId: String, myUid: String, choreId: String?) = viewModelFactory {
             initializer {
                 val c = appContainer()
-                AddChoreViewModel(c.choreRepository, c.householdActions, householdId, choreId, c.choreDraftRepository)
+                AddChoreViewModel(
+                    c.choreRepository, c.householdActions, householdId, myUid, choreId, c.choreDraftRepository
+                )
             }
         }
     }
