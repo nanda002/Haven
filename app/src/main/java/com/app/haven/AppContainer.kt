@@ -21,6 +21,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.app.haven.actions.ChoreActions
 import com.app.haven.actions.ChoreRepository
+import com.app.haven.data.api.ProductLookupActions
+import com.app.haven.data.api.ProductLookupRepository
+import com.app.haven.notifications.NotificationPrefs
 
 // Manual dependency injection: the only place that knows about Room and Firebase.
 // It builds the data layer once; ViewModel factories take what they need from here,
