@@ -26,6 +26,7 @@ import com.app.haven.data.model.ChoreCompletionDoc
 import com.app.haven.data.model.ChoreTransferDoc
 import com.app.haven.data.model.Member
 import com.app.haven.domain.chore.HouseholdMember
+import com.app.haven.domain.chore.MembershipPeriod
 import com.app.haven.domain.chore.VacationPeriod
 import com.app.haven.domain.chore.epochDayOfMillis
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -281,7 +282,8 @@ class ChoreRepository(
                         joinedEpochDay = m.joinedAt?.let { epochDayOfMillis(it.time) } ?: today,
                         active = m.active,
                         onVacation = m.vacation,
-                        vacationPeriods = periods
+                        vacationPeriods = periods,
+                        pastMemberships = m.membershipPeriods.map { MembershipPeriod(it.joinedEpochDay, it.leftEpochDay) }
                     )
                 }
 
@@ -292,12 +294,10 @@ class ChoreRepository(
                 .toObjects(ChoreCompletionDoc::class.java).map { it.toDomain() }
 
             // Loads shared chores and resolves recurring chores to their current occurrence.
-            // Only unfinished chores are returned because completed chores should not count
-            // toward someone's upcoming workload.
+            // Finished repeating chores stay in: their coming turns count. Finished one-off chores add nothing.
             val open = householdChores(householdId).latest()
                 .toObjects(ChoreDoc::class.java)
-                .map { resolveOccurrence(it.toDomain(), today) }
-                .filter { !it.done }
+                .map { resolveOccurrence(it.toDomain(), today) }   // finished repeating chores stay in, their next turns count
             AssignmentInputs(members, history, open)
         }
 
