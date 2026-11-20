@@ -17,18 +17,21 @@ data class ChoreCompletionDoc(
     val assignedToUid: String = "",
     val dueEpochDay: Long = 0L,
     val completedEpochDay: Long = 0L,
+    val originalAssigneeUid: String = "",
     @ServerTimestamp val completedAt: Date? = null
 )
 
 fun ChoreCompletionDoc.toDomain() = DomainCompletion(
     id = id, choreId = choreId, choreTitle = choreTitle,
     completedByUid = completedByUid, completedByName = completedByName,
-    assignedToUid = assignedToUid, dueEpochDay = dueEpochDay, completedEpochDay = completedEpochDay
+    assignedToUid = assignedToUid, dueEpochDay = dueEpochDay, completedEpochDay = completedEpochDay,
+    originalAssigneeUid = originalAssigneeUid
 )
 
 // the document id is the occurrence id, so it isn't a stored field
 fun DomainCompletion.toData() = ChoreCompletionDoc(
     choreId = choreId, choreTitle = choreTitle,
     completedByUid = completedByUid, completedByName = completedByName,
-    assignedToUid = assignedToUid, dueEpochDay = dueEpochDay, completedEpochDay = completedEpochDay
+    assignedToUid = assignedToUid, dueEpochDay = dueEpochDay, completedEpochDay = completedEpochDay,
+    originalAssigneeUid = originalAssigneeUid
 )

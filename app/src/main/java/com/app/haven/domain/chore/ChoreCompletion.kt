@@ -10,7 +10,8 @@ data class ChoreCompletion(
     val completedByName: String,
     val assignedToUid: String,    // who it was assigned to at that time
     val dueEpochDay: Long,        // the scheduled date of the occurrence
-    val completedEpochDay: Long
+    val completedEpochDay: Long,
+    val originalAssigneeUid: String = ""   // who it was first given to, which differs from assignedToUid after a hand-over
 )
 
 // One record per occurrence, so an occurrence can never be counted twice (repeated taps or syncs)

@@ -29,6 +29,9 @@ data class Chore(
     val nextAssigneeName: String = "",
     val scope: String = "household",
     val ownerUid: String = "",
+    val originalAssigneeUid: String = "",
+    val originalAssigneeName: String = "",
+    val originalForEpochDay: Long = 0L,
     @ServerTimestamp val createdAt: Date? = null
 )
 
@@ -42,7 +45,9 @@ fun Chore.toDomain() = DomainChore(
     notes = notes,
     nextAssigneeUid = nextAssigneeUid, nextAssigneeName = nextAssigneeName ,
     scope = if (scope == ChoreScope.PERSONAL) ChoreScope.PERSONAL else ChoreScope.HOUSEHOLD,
-    ownerUid = ownerUid
+    ownerUid = ownerUid,
+    originalAssigneeUid = originalAssigneeUid, originalAssigneeName = originalAssigneeName,
+    originalForEpochDay = originalForEpochDay
 )
 
 // Converts the domain Chore model into the Firestore data model
@@ -54,5 +59,7 @@ fun DomainChore.toData() = Chore(
     category = category,
     notes = notes,
     nextAssigneeUid = nextAssigneeUid, nextAssigneeName = nextAssigneeName,
-    scope = scope, ownerUid = ownerUid
+    scope = scope, ownerUid = ownerUid,
+    originalAssigneeUid = originalAssigneeUid, originalAssigneeName = originalAssigneeName,
+    originalForEpochDay = originalForEpochDay
 )

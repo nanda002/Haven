@@ -6,6 +6,9 @@ import com.app.haven.data.model.toData
 import com.app.haven.data.model.toDomain
 import com.app.haven.domain.chore.Chore
 import com.app.haven.domain.chore.ChoreCompletion
+import com.app.haven.domain.chore.ChoreTransferRequest
+import com.app.haven.domain.chore.TransferStatus
+import com.google.firebase.firestore.FieldValue
 import com.app.haven.domain.chore.ChoreScope
 import com.app.haven.domain.chore.resolveOccurrence
 import com.app.haven.domain.chore.todayEpochDay
@@ -20,6 +23,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import com.app.haven.data.model.ChoreCompletionDoc
+import com.app.haven.data.model.ChoreTransferDoc
 import com.app.haven.data.model.Member
 import com.app.haven.domain.chore.HouseholdMember
 import com.app.haven.domain.chore.VacationPeriod
@@ -50,6 +54,9 @@ interface ChoreActions {
     suspend fun deleteChore(householdId: String, chore: Chore): Result<Unit>
     suspend fun recordCompletion(householdId: String, completion: ChoreCompletion): Result<Unit>
     suspend fun removeCompletion(householdId: String, completionId: String): Result<Unit>
+    fun observeTransfers(householdId: String, myUid: String): Flow<List<ChoreTransferRequest>>
+    suspend fun sendTransfer(householdId: String, request: ChoreTransferRequest): Result<Unit>
+    suspend fun respondToTransfer(householdId: String, request: ChoreTransferRequest, accept: Boolean): Result<Unit>
     suspend fun loadAssignmentInputs(householdId: String): Result<AssignmentInputs>
 }
 
@@ -181,6 +188,75 @@ class ChoreRepository(
                 .addOnFailureListener { Log.e("Chore Repo", "completion removal failed on the server") }
             Unit
         }
+
+    private fun transfers(householdId: String) = household(householdId).collection("choreTransfers")
+
+    // requests this person sent or received
+    override fun observeTransfers(householdId: String, myUid: String): Flow<List<ChoreTransferRequest>> =
+        combine(
+            listenTransfers(transfers(householdId).whereEqualTo("toUid", myUid)),
+            listenTransfers(transfers(householdId).whereEqualTo("fromUid", myUid))
+        ) { received, sent -> (received + sent).distinctBy { it.id } }
+
+    private fun listenTransfers(query: Query): Flow<List<ChoreTransferRequest>> = callbackFlow {
+        val registration = query.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            trySend(snapshot?.toObjects(ChoreTransferDoc::class.java)?.map { it.toDomain() } ?: emptyList())
+        }
+        awaitClose { registration.remove() }
+    }
+
+    // Sending only records the offer. The chore stays with its current assignee.
+    override suspend fun sendTransfer(householdId: String, request: ChoreTransferRequest): Result<Unit> =
+        runCatching {
+            require(request.fromUid != request.toUid) { "Pick a different roommate" }
+            transfers(householdId).document(request.id).set(request.toData())
+                .addOnFailureListener { Log.e("Chore Repo", "transfer request failed on the server") }
+            Unit
+        }
+
+    // Accepting moves the chore and keeps who it was first given to. Declining changes nothing on the chore.
+    // Either way the answer and its time are recorded. Needs a connection, so two phones can't both win.
+    override suspend fun respondToTransfer(
+        householdId: String,
+        request: ChoreTransferRequest,
+        accept: Boolean
+    ): Result<Unit> = runCatching {
+        val requestRef = transfers(householdId).document(request.id)
+        val choreRef = householdChores(householdId).document(request.choreId)
+        db.runTransaction { tx ->
+            val requestSnap = tx.get(requestRef)
+            val choreSnap = tx.get(choreRef)
+            check(requestSnap.getString("status") == TransferStatus.PENDING) { "This request is no longer open" }
+            if (accept) {
+                check(choreSnap.exists()) { "This chore no longer exists" }
+                check(choreSnap.getBoolean("done") != true) { "This chore is already finished" }
+                check(choreSnap.getString("assigneeUid") == request.fromUid) {
+                    "This chore is no longer with ${request.fromName}"
+                }
+                check(choreSnap.getLong("dueEpochDay") == request.dueEpochDay) { "This chore has moved on to a later date" }
+                val changes = mutableMapOf<String, Any>(
+                    "assigneeUid" to request.toUid,
+                    "assigneeName" to request.toName
+                )
+                val alreadyRecorded = choreSnap.getLong("originalForEpochDay") == request.dueEpochDay &&
+                        !choreSnap.getString("originalAssigneeUid").isNullOrBlank()
+                if (!alreadyRecorded) {
+                    changes["originalAssigneeUid"] = request.fromUid
+                    changes["originalAssigneeName"] = request.fromName
+                    changes["originalForEpochDay"] = request.dueEpochDay
+                }
+                tx.update(choreRef, changes)
+            }
+            val answer = if (accept) TransferStatus.ACCEPTED else TransferStatus.DECLINED
+            tx.update(requestRef, mapOf("status" to answer, "respondedAt" to FieldValue.serverTimestamp()))
+            null
+        }.await()
+        Unit
+    }
 
     // Loads the latest information required for automatic chore assignment.
     // It retrieves active household members, their join and vacation information,
