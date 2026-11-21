@@ -1,9 +1,11 @@
 package com.app.haven.view.common
 
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -23,7 +25,8 @@ fun LimitedTextField(
     error: String? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
-    visualTransformation: VisualTransformation = VisualTransformation.None
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    shape: Shape = OutlinedTextFieldDefaults.shape as Shape
 ) {
     OutlinedTextField(
         value = value,
@@ -43,6 +46,7 @@ fun LimitedTextField(
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
         visualTransformation = visualTransformation,
-        modifier = modifier
-    )
+        modifier = modifier,
+        shape = shape,
+        )
 }

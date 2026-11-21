@@ -129,7 +129,8 @@ fun MainGroceryItemScreen(
                     value = newName,
                     onValueChange = { newName = it },
                     maxLength = InputLimits.ITEM,
-                    label = "Item"
+                    label = "Item",
+                    shape = RoundedCornerShape(24.dp)
                 )
             },
             confirmButton = {
@@ -187,7 +188,8 @@ fun MainGroceryItemScreen(
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(onDone = { submit() }),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(24.dp)
             )
             IconButton(onClick = onScan) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan a barcode")
