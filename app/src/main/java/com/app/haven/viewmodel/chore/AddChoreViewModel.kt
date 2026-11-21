@@ -31,6 +31,7 @@ import kotlinx.coroutines.launch
 import com.app.haven.domain.chore.titleCase
 import com.app.haven.domain.chore.ChoreScope
 import com.app.haven.domain.chore.NO_ELIGIBLE_MEMBER_MESSAGE
+import com.app.haven.domain.chore.automaticPriorityOrder
 import com.app.haven.domain.chore.pickAutomaticAssignee
 import com.app.haven.domain.chore.todayEpochDay
 import kotlin.random.Random
@@ -109,7 +110,8 @@ class AddChoreViewModel(
     }
 
     private sealed interface AutoChoice {
-        data class Picked(val uid: String, val name: String) : AutoChoice
+        // order: the complete priority order, only filled in for a repeating chore
+        data class Picked(val uid: String, val name: String, val order: List<String> = emptyList()) : AutoChoice
         data class Unavailable(val message: String) : AutoChoice
     }
 
@@ -120,19 +122,34 @@ class AddChoreViewModel(
     // One seed per form, so the preview and the save break a tie the same way while nothing has changed
     private val tieSeed = Random.nextLong()
 
-    // Reads membership, history and workload fresh every time, never from an earlier result
-    private suspend fun chooseAutomatically(): AutoChoice {
+    // Reads membership, history and workload fresh every time, never from an earlier result.
+    // A repeating chore gets the complete priority order, which is saved on it and never recalculated.
+    // A one-time chore only gets its highest-priority roommate, with no order.
+    private suspend fun chooseAutomatically(repeating: Boolean = false): AutoChoice {
         val inputs = chores.loadAssignmentInputs(householdId).getOrElse {
             return AutoChoice.Unavailable(it.friendlyMessage())
         }
-        val picked = pickAutomaticAssignee(
-            members = inputs.members.sortedBy { it.uid },
+        val members = inputs.members.sortedBy { it.uid }
+        if (!repeating) {
+            val picked = pickAutomaticAssignee(
+                members = members,
+                completions = inputs.completions,
+                openChores = inputs.openChores,
+                today = todayEpochDay(),
+                random = Random(tieSeed)
+            ) ?: return AutoChoice.Unavailable(NO_ELIGIBLE_MEMBER_MESSAGE)
+            return AutoChoice.Picked(picked.uid, picked.name)
+        }
+        val order = automaticPriorityOrder(
+            members = members,
             completions = inputs.completions,
             openChores = inputs.openChores,
             today = todayEpochDay(),
             random = Random(tieSeed)
-        ) ?: return AutoChoice.Unavailable(NO_ELIGIBLE_MEMBER_MESSAGE)
-        return AutoChoice.Picked(picked.uid, picked.name)
+        )
+        // the first in the order gets the first occurrence
+        val first = order.firstOrNull() ?: return AutoChoice.Unavailable(NO_ELIGIBLE_MEMBER_MESSAGE)
+        return AutoChoice.Picked(first.uid, first.name, order.map { it.uid })
     }
 
     // The form calls this whenever Automatic is shown. Saving works it out again.
@@ -178,6 +195,8 @@ class AddChoreViewModel(
         viewModelScope.launch {
             fun fail(message: String) { _saving.value = false; _error.value = message }
 
+            // only an automatically assigned repeating chore gets a saved order
+            var savedOrder: List<String> = emptyList()
             val target: Pair<String, String> = when {
                 personal -> {
                     val name = members.value.firstOrNull { it.uid == myUid }?.displayName
@@ -185,8 +204,11 @@ class AddChoreViewModel(
                     if (name.isBlank()) return@launch fail("Couldn't load your profile, please try again")
                     myUid to name
                 }
-                automatic -> when (val choice = chooseAutomatically()) {
-                    is AutoChoice.Picked -> choice.uid to choice.name
+                automatic -> when (val choice = chooseAutomatically(repeating = repeatDays > 0)) {
+                    is AutoChoice.Picked -> {
+                        savedOrder = choice.order
+                        choice.uid to choice.name
+                    }
                     is AutoChoice.Unavailable -> return@launch fail(choice.message)
                 }
                 else -> assignee!!.uid to assignee.displayName
@@ -215,7 +237,9 @@ class AddChoreViewModel(
                 ownerUid = if (personal) myUid else "",
                 originalAssigneeUid = base?.originalAssigneeUid ?: assigneeUid,
                 originalAssigneeName = base?.originalAssigneeName ?: assigneeName,
-                originalForEpochDay = base?.originalForEpochDay ?: dueEpochDay
+                originalForEpochDay = base?.originalForEpochDay ?: dueEpochDay,
+                // fixed for the life of the chore: an edit keeps what was saved, only a new chore gets one
+                rotationOrder = base?.rotationOrder ?: savedOrder
             )
             val result = if (base == null) chores.addChore(householdId, chore)
             else chores.updateChore(householdId, chore)

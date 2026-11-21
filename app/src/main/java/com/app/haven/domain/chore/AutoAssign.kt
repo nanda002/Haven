@@ -146,52 +146,65 @@ private fun datesInWindow(chore: Chore, first: Long, windowEnd: Long): Int {
     return count
 }
 
-// Select the assignee for a new automatically assigned household chore.
+// A rate is never worked out over fewer active days than this, so a very recent join date can't make it unstable.
+const val MIN_ACTIVE_DAYS = 7L
+
+const val DAYS_PER_WEEK = 7.0
+
+// Days a roommate has been active in the household, from when they joined up to and including today:
+// every day of every stay (earlier stays included) except the days they were on vacation.
+fun activeDays(member: HouseholdMember, today: Long): Long {
+    val firstDay = minOf(
+        member.joinedEpochDay,
+        member.pastMemberships.minOfOrNull { it.joinedEpochDay } ?: member.joinedEpochDay
+    )
+    if (today < firstDay) return 0L
+    return (firstDay..today).count { member.participatedOn(it) }.toLong()
+}
+
+// The primary assignment ranking number: average household chores completed per active week.
+// Completions made on vacation days or before joining are not counted (see contributionCount), and the
+// active time never drops below MIN_ACTIVE_DAYS.
+fun completionRatePerWeek(
+    member: HouseholdMember,
+    completions: List<ChoreCompletion>,
+    today: Long
+): Double =
+    contributionCount(member, completions) * DAYS_PER_WEEK / maxOf(activeDays(member, today), MIN_ACTIVE_DAYS)
+
+// Every eligible roommate, highest priority first. Ranked by:
+//   1. lowest completion rate per active week
+//   2. lowest contribution percentage
+//   3. lowest upcoming workload
+//   4. random, for anyone still tied (the list is shuffled first and the sort keeps that order for ties)
+// Inactive and vacationing members are left out. Personal chores never reach this: the repository only
+// supplies household chores and completions.
+fun automaticPriorityOrder(
+    members: List<HouseholdMember>,
+    completions: List<ChoreCompletion>,
+    openChores: List<Chore>,
+    today: Long,
+    random: Random = Random.Default
+): List<HouseholdMember> {
+    val eligible = eligibleMembers(members)
+
+    val rates = eligible.associate { it.uid to completionRatePerWeek(it, completions, today) }
+    val shares = contributionPercentages(eligible, completions)
+    val workloads = eligible.associate { it.uid to workloadOf(it.uid, openChores, today) }
+
+    return eligible.shuffled(random).sortedWith(
+        compareBy<HouseholdMember> { rates.getValue(it.uid) }
+            .thenBy { shares.getValue(it.uid) }
+            .thenBy { workloads.getValue(it.uid) }
+    )
+}
+
+// The highest-priority roommate for a new automatically assigned household chore, or null if nobody is eligible.
 fun pickAutomaticAssignee(
     members: List<HouseholdMember>,
     completions: List<ChoreCompletion>,
     openChores: List<Chore>,
     today: Long,
     random: Random = Random.Default
-): HouseholdMember? {
-
-    val eligible = eligibleMembers(members)
-
-    if (eligible.isEmpty()) return null
-
-    if (eligible.size == 1) return eligible.first()
-
-    // Nobody has completed a shared chore yet, so there is nothing to compare. Assigned chores are not
-    // contributions and no percentages are made up: choose at random.
-    if (eligible.all { contributionCount(it, completions) == 0 }) {
-        return eligible.random(random)
-    }
-
-    // Once chores are being completed, the lowest actual contribution percentage gets the chore.
-    // Someone who hasn't completed anything yet has done 0% of the work so far.
-    val shares = contributionPercentages(eligible, completions)
-    val lowest = shares.values.min()
-
-    val tiedMembers = eligible.filter {
-        shares.getValue(it.uid) == lowest
-    }
-
-    // A uniquely lowest contributor always gets the chore, whatever their workload.
-    if (tiedMembers.size == 1) {
-        return tiedMembers.first()
-    }
-
-    // Workload is only used to separate a contribution tie.
-    val workloads = tiedMembers.associate {
-        it.uid to workloadOf(it.uid, openChores, today)
-    }
-
-    val lowestWorkload = workloads.values.min()
-
-    val lightestWorkloadMembers = tiedMembers.filter {
-        workloads.getValue(it.uid) == lowestWorkload
-    }
-
-    // If both contribution and workload are equal, choose randomly.
-    return lightestWorkloadMembers.random(random)
-}
+): HouseholdMember? =
+    automaticPriorityOrder(members, completions, openChores, today, random).firstOrNull()

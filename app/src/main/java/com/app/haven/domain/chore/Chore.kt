@@ -26,10 +26,11 @@ data class Chore(
     val ownerUid: String = "",                    // personal chores only: the one person who can see it
     val originalAssigneeUid: String = "",        // who this occurrence was first given to, before any hand-over
     val originalAssigneeName: String = "",
-    val originalForEpochDay: Long = 0L           // the occurrence those two belong to, so a new occurrence starts fresh
+    val originalForEpochDay: Long = 0L,          // the occurrence those two belong to, so a new occurrence starts fresh
+    val rotationOrder: List<String> = emptyList()   // automatic repeating chores: roommate uids in priority order, saved once and never recalculated
 )
 
-data class Assignee(val uid: String, val name: String, val joinedAtMillis: Long = Long.MAX_VALUE)
+data class Assignee(val uid: String, val name: String)
 
 // Stored in Firestore as `key`. Never store or rename the label, keys must stay stable.
 enum class ChoreCategory(val key: String, val label: String) {
@@ -177,20 +178,22 @@ fun Chore.lastDoneLabel(today: Long): String? {
     return "Last done by $by $whenText"
 }
 
-// STABLE ORDER: when each roommate joined the household (joinedAt), uid only as a tie-break.
-// Not alphabetical, not random. Someone who leaves drops out and the rest keep their relative
-// order. Someone new joins at the end of the cycle.
-fun stableOrder(members: List<Assignee>): List<Assignee> =
-    members.sortedWith(compareBy<Assignee> { it.joinedAtMillis }.thenBy { it.uid })
-
-// The roommate after `currentUid` in the stable order, wrapping around.
-// If currentUid isn't an active member, count from `fallbackUid`. If that is gone too, start at the top.
-fun nextAssignee(members: List<Assignee>, currentUid: String?, fallbackUid: String? = null): Assignee? {
-    if (members.isEmpty()) return null
-    val order = stableOrder(members)
-    var i = order.indexOfFirst { it.uid == currentUid }
-    if (i == -1) i = order.indexOfFirst { it.uid == fallbackUid }
-    return if (i == -1) order.first() else order[(i + 1) % order.size]
+// TAKE TURNS: the next turn goes to the roommate after whoever actually did the chore in the chore's saved
+// rotation order, wrapping around. The order is saved when the chore is created and never recalculated.
+// If the person who did it isn't in the order, count from the current assignee instead; if neither is, start
+// at the top. Roommates who are no longer in the household are skipped.
+// A chore with no saved order (created before saved orders existed, or assigned manually) falls back to the
+// current members sorted by uid, so it keeps rotating and never crashes.
+fun nextInRotation(chore: Chore, members: List<Assignee>, completedByUid: String): Assignee? {
+    val order = chore.rotationOrder.ifEmpty { members.map { it.uid }.sorted() }
+    if (order.isEmpty()) return null
+    var anchor = order.indexOf(completedByUid)
+    if (anchor == -1) anchor = order.indexOf(chore.assigneeUid)
+    for (step in 1..order.size) {
+        val uid = order[Math.floorMod(anchor + step, order.size)]
+        members.firstOrNull { it.uid == uid }?.let { return it }
+    }
+    return null
 }
 
 // ANCHORED to the schedule: previous scheduled date + interval.
@@ -272,7 +275,7 @@ fun completeChore(chore: Chore, members: List<Assignee>, completedBy: Assignee, 
 
     // The assignee and the due date stay as they are: this occurrence belongs to its assignee until
     // its date passes. The next turn goes to the roommate after whoever actually did it.
-    val next = if (chore.rotate) nextAssignee(members, completedBy.uid, fallbackUid = chore.assigneeUid) else null
+    val next = if (chore.rotate) nextInRotation(chore, members, completedBy.uid) else null
     return finished.copy(
         nextAssigneeUid = next?.uid ?: chore.assigneeUid,
         nextAssigneeName = next?.name ?: chore.assigneeName

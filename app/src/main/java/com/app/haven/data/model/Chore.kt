@@ -32,6 +32,7 @@ data class Chore(
     val originalAssigneeUid: String = "",
     val originalAssigneeName: String = "",
     val originalForEpochDay: Long = 0L,
+    val rotationOrder: List<String> = emptyList(),   // saved priority order (uids); missing on older chores, which fall back
     @ServerTimestamp val createdAt: Date? = null
 )
 
@@ -47,7 +48,8 @@ fun Chore.toDomain() = DomainChore(
     scope = if (scope == ChoreScope.PERSONAL) ChoreScope.PERSONAL else ChoreScope.HOUSEHOLD,
     ownerUid = ownerUid,
     originalAssigneeUid = originalAssigneeUid, originalAssigneeName = originalAssigneeName,
-    originalForEpochDay = originalForEpochDay
+    originalForEpochDay = originalForEpochDay,
+    rotationOrder = rotationOrder
 )
 
 // Converts the domain Chore model into the Firestore data model
@@ -61,5 +63,6 @@ fun DomainChore.toData() = Chore(
     nextAssigneeUid = nextAssigneeUid, nextAssigneeName = nextAssigneeName,
     scope = scope, ownerUid = ownerUid,
     originalAssigneeUid = originalAssigneeUid, originalAssigneeName = originalAssigneeName,
-    originalForEpochDay = originalForEpochDay
+    originalForEpochDay = originalForEpochDay,
+    rotationOrder = rotationOrder
 )

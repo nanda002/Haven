@@ -44,4 +44,40 @@ class ChoreCompletionRulesTest {
         assertEquals("kitchen", done.category)
         assertEquals("Use the blue sponge", done.notes)
     }
+
+    // ---- saved rotation order ----
+
+    private val ann = Assignee("ann", "Ann")
+    private val ben = Assignee("ben", "Ben")
+    private val cat = Assignee("cat", "Cat")
+
+    private fun repeating(assignee: Assignee, order: List<String>, rotate: Boolean = true) = Chore(
+        id = "r1", title = "Trash", assigneeUid = assignee.uid, assigneeName = assignee.name,
+        dueEpochDay = today, repeatDays = 7, rotate = rotate, rotationOrder = order
+    )
+
+    @Test fun nextTurnFollowsTheSavedOrderFromWhoActuallyDidIt() {
+        val chore = repeating(cat, listOf("cat", "ann", "ben"))
+        val members = listOf(ann, ben, cat)
+        assertEquals("ben", completeChore(chore, members, ann, today).nextAssigneeUid)
+        assertEquals("ann", completeChore(chore, members, cat, today).nextAssigneeUid)
+        assertEquals("cat", completeChore(chore, members, ben, today).nextAssigneeUid)   // wraps around
+    }
+
+    @Test fun samePersonKeepsTheSameAssignee() {
+        val chore = repeating(cat, listOf("cat", "ann", "ben"), rotate = false)
+        val done = completeChore(chore, listOf(ann, ben, cat), ben, today)
+        assertEquals("cat", done.nextAssigneeUid)
+    }
+
+    @Test fun roommatesWhoLeftAreSkipped() {
+        val chore = repeating(ann, listOf("ann", "ben", "cat"))
+        assertEquals("cat", completeChore(chore, listOf(ann, cat), ann, today).nextAssigneeUid)
+    }
+
+    @Test fun aChoreWithNoSavedOrderStillRotates() {
+        val chore = repeating(ann, emptyList())
+        val next = completeChore(chore, listOf(ann, ben, cat), ann, today)
+        assertEquals("ben", next.nextAssigneeUid)
+    }
 }

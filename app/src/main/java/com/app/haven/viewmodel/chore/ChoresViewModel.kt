@@ -42,9 +42,9 @@ class ChoresViewModel(
     private val myUid: String
 ) : ViewModel() {
 
-    // current members only: these are who the round robin rotates through
+    // current members only: a saved rotation order can only hand the next turn to someone who is still here
     private val members: StateFlow<List<Assignee>> = households.observeMembers(householdId)
-        .map { list -> list.map { Assignee(it.uid, it.displayName, it.joinedAt?.time ?: Long.MAX_VALUE) } }
+        .map { list -> list.map { Assignee(it.uid, it.displayName) } }
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
