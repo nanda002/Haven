@@ -67,6 +67,7 @@ fun GroceryListRoute(
         onRename = vm::onRename,
         onDelete = vm::onDelete,
         onAddToExpense = onAddToExpense,
+        onDeleteFromBought = vm::onDeleteFromBought,
         onShowBought = onShowBought,
         onScan = onScan,
         scan = scan,
@@ -90,6 +91,7 @@ fun MainGroceryItemScreen(
     onDelete: (String) -> Unit,
     //bottom bar's "Add to expense"
     onAddToExpense: () -> Unit = {},
+    onDeleteFromBought: () -> Unit = {},
     //"Show Bought Items" button
     onShowBought: () -> Unit = {},
     onScan: () -> Unit = {},
@@ -159,10 +161,14 @@ fun MainGroceryItemScreen(
         onDismiss = onScanDismissed
     )
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(Modifier
+        .fillMaxSize()
+        .padding(horizontal = 16.dp)) {
         //title + button to the bought history (items grouped by the day they were bought)
         Row(
-            Modifier.fillMaxWidth().padding(start = 8.dp, top = 24.dp, bottom = 8.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, top = 24.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Groceries", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
@@ -193,7 +199,9 @@ fun MainGroceryItemScreen(
         //showing the suggestions below the add bar
         if (suggestions.isNotEmpty()) {
             Surface(
-                modifier = Modifier.fillMaxWidth().padding(end = 96.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 96.dp),
                 shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
                 tonalElevation = 3.dp,
                 shadowElevation = 3.dp
@@ -215,7 +223,9 @@ fun MainGroceryItemScreen(
         Spacer(Modifier.height(8.dp))
 
         //the list takes the space between the add bar and the bottom bar
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+        Box(Modifier
+            .weight(1f)
+            .fillMaxWidth()) {
             if (items.isEmpty()) {
                 Text("Nothing on the list yet", Modifier.align(Alignment.Center))
             } else {
@@ -254,6 +264,7 @@ fun MainGroceryItemScreen(
             AddToExpenseBar(
                 count = boughtByMeCount,
                 onAddToExpense = onAddToExpense,
+                onClear = onDeleteFromBought,
                 onDismiss = { dismissedAtCount = boughtByMeCount }
             )
         }
@@ -296,10 +307,13 @@ fun GroceryRow(
 private fun AddToExpenseBar(
     count: Int,
     onAddToExpense: () -> Unit,
+    onClear: () -> Unit,
     onDismiss: () -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 3.dp,
@@ -314,6 +328,7 @@ private fun AddToExpenseBar(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f)
             )
+            TextButton(onClick = onClear) { Text("Clear items") }
             Button(onClick = onAddToExpense) { Text("Add to expense") }
             IconButton(onClick = onDismiss) {
                 Icon(Icons.Default.Close, contentDescription = "Dismiss")

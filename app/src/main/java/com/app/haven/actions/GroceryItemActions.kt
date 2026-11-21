@@ -23,6 +23,7 @@ interface GroceryItemActions {
     ): Result<Unit>
     //after the expense for these items is saved: take them off the list (kept for Bought history)
     suspend fun markAddedToExpense(householdId: String, groceryitemIds: List<String>): Result<Unit>
+    suspend fun markClearedFromList(householdId: String, groceryitemIds: List<String>): Result<Unit>
 }
 
 class GroceryItemRepository(
@@ -100,6 +101,17 @@ class GroceryItemRepository(
             ids.forEach { id -> batch.update(groceryitems(householdId).document(id), "addedToExpense", true) }
             batch.commit()
                 .addOnFailureListener { Log.e("Grocery Item Repo", "mark added to expense failed on the server") }
+            Unit
+        }
+
+    override suspend fun markClearedFromList(householdId: String, groceryitemIds: List<String>): Result<Unit> =
+        runCatching {
+            val ids = groceryitemIds.filter { it.isNotBlank() }
+            if (ids.isEmpty()) return@runCatching
+            val batch = db.batch()
+            ids.forEach { id -> batch.update(groceryitems(householdId).document(id), "clearedFromList", true) }
+            batch.commit()
+                .addOnFailureListener { Log.e("Grocery Item Repo", "mark cleared from list failed on the server") }
             Unit
         }
 }

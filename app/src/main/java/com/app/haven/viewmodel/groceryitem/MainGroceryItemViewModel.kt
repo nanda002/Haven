@@ -136,6 +136,14 @@ class MainGroceryItemViewModel(
         }
     }
 
+    fun onDeleteFromBought() {
+        val ids = items.value.filter { it.bought && it.paidByUid == myUid }.map { it.id }
+        viewModelScope.launch {
+            groceries.markClearedFromList(householdId, ids)
+                .onFailure { _error.value = it.friendlyMessage() }
+        }
+    }
+
     fun onRetryScan() {
         val code = (_scan.value as? ScanState.Error)?.code ?: return
         onBarcodeScanned(code)
