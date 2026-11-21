@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -32,9 +33,8 @@ import com.app.haven.view.common.LimitedTextField
 import com.app.haven.domain.grocerylist.listName
 import com.app.haven.viewmodel.groceryitem.MainGroceryItemViewModel
 import com.app.haven.viewmodel.groceryitem.ScanState
+import com.app.haven.viewmodel.groceryitem.Suggestion
 
-//Gets the ViewModel and passes its state and events into the screen below.
-//This is what the "grocery" route in MainScaffold calls.
 @Composable
 fun GroceryListRoute(
     householdId: String,
@@ -98,7 +98,7 @@ fun MainGroceryItemScreen(
     scan: ScanState = ScanState.Hidden,
     onRetryScan: () -> Unit = {},
     onScanDismissed: () -> Unit = {},
-    suggestions: List<String> = emptyList(),
+    suggestions: List<Suggestion> = emptyList(),
     onQueryChanged: (String) -> Unit = {}
 ) {
     //what the user is typing in the add bar (survives rotation)
@@ -207,11 +207,16 @@ fun MainGroceryItemScreen(
                 shadowElevation = 3.dp
             ) {
                 Column {
-                    suggestions.forEach { name ->
+                    suggestions.forEach { suggestion ->
                         ListItem(
-                            headlineContent = { Text(name) },
-                            leadingContent = { Icon(Icons.Default.Search, contentDescription = null) },
-                            modifier = Modifier.clickable { onAdd(name) { text = ""; onQueryChanged("") } }
+                            headlineContent = { Text(suggestion.name) },
+                            leadingContent = {
+                                Icon(
+                                    if (suggestion.fromHistory) Icons.Default.History else Icons.Default.Search,
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable { onAdd(suggestion.name) { text = ""; onQueryChanged("") } }
                         )
                     }
                 }

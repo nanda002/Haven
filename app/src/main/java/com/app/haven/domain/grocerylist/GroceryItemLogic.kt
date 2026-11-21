@@ -25,6 +25,33 @@ fun groupBoughtByDay(items: List<GroceryItem>, timeZone: TimeZone = TimeZone.get
     return if (undated.isEmpty()) days else days + BoughtDay(null, undated)
 }
 
+fun historySuggestions(allItems: List<GroceryItem>, query: String, limit: Int = 3): List<String> {
+    val q = query.trim()
+    if (q.isEmpty()) return emptyList()
+
+    val onListNow = allItems.onList()
+//        .filter { !it.bought }
+        .map { it.description.trim().lowercase() }
+        .toSet()
+
+    return allItems
+        .filter { it.description.isNotBlank() }
+        .groupBy { it.description.trim().lowercase() }
+        //not showing items currently on pending list
+        .filterKeys { it !in onListNow }
+        .filterKeys { name -> name.split(" ").any { it.startsWith(q, ignoreCase = true) } }
+        .values
+        //sorted between items by checking its size i.e. the most popular
+        //or frequently bought item
+        //then a tiebreaker based on timestamp if first comparison returns equal size
+        .sortedWith(
+            compareByDescending<List<GroceryItem>> { it.size }
+                .thenByDescending { group -> group.maxOf { it.createdAtMillis ?: 0L } }
+        )
+        .map { group -> group.maxBy { it.createdAtMillis ?: 0L }.description.trim() }
+        .take(limit)
+}
+
 fun dayKey(millis: Long, timeZone: TimeZone = TimeZone.getDefault()): String {
     val cal = Calendar.getInstance(timeZone).apply { timeInMillis = millis }
     return String.format(
