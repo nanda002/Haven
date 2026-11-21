@@ -96,11 +96,16 @@ private fun ChoreForm(
     var showPicker by rememberSaveable { mutableStateOf(false) }
     var showEndPicker by rememberSaveable { mutableStateOf(false) }
 
+    // edit mode only: true when the user deliberately chose Automatic again. Always starts off,
+    // so saving an ordinary edit never reassigns the chore.
+    var reassignAuto by rememberSaveable { mutableStateOf(false) }
+
+
     // "Today" and "Tomorrow" follow the clock. A picked date stays fixed.
     val dueDay: Long = form.dueOffset?.let { today + it } ?: form.fixedDueDay
 
     val isPersonal = if (isAdd) form.scope == ChoreScope.PERSONAL else existing?.scope == ChoreScope.PERSONAL
-    val autoAssign = isAdd && !isPersonal && form.autoAssign
+    val autoAssign = !isPersonal && (if (isAdd) form.autoAssign else reassignAuto)
     val autoPreview by vm.autoPreview.collectAsStateWithLifecycle()
 
     // The pick is worked out each time Automatic is shown, and again when the chore is saved
@@ -273,20 +278,41 @@ private fun ChoreForm(
                         }
                     }
                     else -> {
-                        FieldLabel("Assign to")
-                        MemberChoices(
-                            options = listOfNotNull(
-                                if (assigneeLeft && assignee != null) assignee.uid to "${assignee.displayName} (left)" else null
-                            ) + manualOptions.map { it.uid to memberLabel(it) },
-                            selectedUid = form.assigneeUid,
-                            onSelect = { form.assigneeUid = it }
-                        )
-                        if (assigneeLeft && assignee != null) {
+                        FieldLabel("How Should It Be Assigned?")
+                        CardRow {
+                            ChoiceCard(
+                                "Pick a roommate", !reassignAuto, { reassignAuto = false },
+                                Modifier.weight(1f).fillMaxHeight(),
+                                supporting = "Keep or change by hand"
+                            )
+                            ChoiceCard(
+                                "Automatic", reassignAuto, { reassignAuto = true },
+                                Modifier.weight(1f).fillMaxHeight(),
+                                supporting = "Choose fairly again"
+                            )
+                        }
+                        if (reassignAuto) {
                             Text(
-                                "${assignee.displayName} has left the household. Pick a roommate to take over, or save to keep it with ${assignee.displayName} for now.",
+                                "This will reassign the chore and rebuild the turn order, so everyone currently in the household is included.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error
                             )
+                            AutoAssignSummary(autoPreview)
+                        } else {
+                            MemberChoices(
+                                options = listOfNotNull(
+                                    if (assigneeLeft && assignee != null) assignee.uid to "${assignee.displayName} (left)" else null
+                                ) + manualOptions.map { it.uid to memberLabel(it) },
+                                selectedUid = form.assigneeUid,
+                                onSelect = { form.assigneeUid = it }
+                            )
+                            if (assigneeLeft && assignee != null) {
+                                Text(
+                                    "${assignee.displayName} has left the household. Pick a roommate to take over, or save to keep it with ${assignee.displayName} for now.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                     }
                 }
@@ -440,7 +466,7 @@ private fun ChoreForm(
                             title = form.title,
                             category = form.categoryKey,
                             scope = if (isAdd) form.scope else existing?.scope ?: ChoreScope.HOUSEHOLD,
-                            autoAssign = form.autoAssign,
+                            autoAssign = if (isAdd) form.autoAssign else reassignAuto,
                             assignee = assignee,
                             dueEpochDay = dueDay,
                             repeatDays = form.repeatDays,

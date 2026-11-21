@@ -184,7 +184,7 @@ class AddChoreViewModel(
     ) {
         val base = _existing.value
         val personal = (base?.scope ?: scope) == ChoreScope.PERSONAL
-        val automatic = base == null && !personal && autoAssign
+        val automatic = !personal && autoAssign
         // personal and Automatic chores get their assignee further down, so only a manual pick is checked here
         val checkedUid = if (personal || automatic) myUid else assignee?.uid
         validateChore(title, checkedUid, category)?.let { _error.value = it; return }
@@ -242,7 +242,7 @@ class AddChoreViewModel(
                 originalAssigneeName = base?.originalAssigneeName ?: assigneeName,
                 originalForEpochDay = base?.originalForEpochDay ?: dueEpochDay,
                 // fixed for the life of the chore: an edit keeps what was saved, only a new chore gets one
-                rotationOrder = base?.rotationOrder ?: savedOrder
+                rotationOrder = if (automatic) savedOrder else (base?.rotationOrder ?: savedOrder)
             )
             val result = if (base == null) chores.addChore(householdId, chore)
             else chores.updateChore(householdId, chore)
