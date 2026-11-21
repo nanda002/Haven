@@ -65,6 +65,7 @@ interface ChoreActions {
     suspend fun sendTransfer(householdId: String, request: ChoreTransferRequest): Result<Unit>
     suspend fun respondToTransfer(householdId: String, request: ChoreTransferRequest, accept: Boolean): Result<Unit>
     suspend fun loadAssignmentInputs(householdId: String): Result<AssignmentInputs>
+    suspend fun loadOpenChores(householdId: String): Result<List<Chore>>
 }
 
 // Shared chores live in households/{id}/chores. Personal chores live in their own collection,
@@ -337,6 +338,17 @@ class ChoreRepository(
                 .toObjects(ChoreDoc::class.java)
                 .map { resolveOccurrence(it.toDomain(), today) }   // finished repeating chores stay in, their next turns count
             AssignmentInputs(members, history, open)
+        }
+
+    // Loads only the shared chores, fresh from the server, for the final "can vacation start?" check.
+    // Unlike loadAssignmentInputs, it does not read members or completion history, so it costs one
+    // Firestore read instead of three. Repeating chores are resolved to their current occurrence.
+    override suspend fun loadOpenChores(householdId: String): Result<List<Chore>> =
+        runCatching {
+            val today = todayEpochDay()
+            householdChores(householdId).latest()
+                .toObjects(ChoreDoc::class.java)
+                .map { resolveOccurrence(it.toDomain(), today) }
         }
 
     // Tries to retrieve the newest data directly from the Firestore server.

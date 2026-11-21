@@ -20,9 +20,16 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.tasks.await
 
 // Offering a chore to another roommate. Nothing changes on the chore until the receiver accepts.
+// A declined offer never touches the chore: it stays with the person who offered it. Choosing who is
+// asked next after a decline is decided by the caller (see nextRecipientUid), not here.
 interface ChoreTransferActions {
+    // Live list of every request this person sent or received.
     fun observeTransfers(householdId: String, myUid: String): Flow<List<ChoreTransferRequest>>
+
+    // Records a new offer. Does not change the chore.
     suspend fun sendTransfer(householdId: String, request: ChoreTransferRequest): Result<Unit>
+
+    // Accepts or declines an offer. Only an accept changes the chore; both record the answer and its time.
     suspend fun respondToTransfer(householdId: String, request: ChoreTransferRequest, accept: Boolean): Result<Unit>
 }
 
@@ -34,13 +41,16 @@ class ChoreTransferRepository(
     private fun transfers(householdId: String) = household(householdId).collection("choreTransfers")
     private fun sharedChores(householdId: String) = household(householdId).collection("chores")
 
-    // requests this person sent or received
+    // Merges two live queries (offers sent to me, offers sent by me) into one list without duplicates.
+    // Firestore cannot OR two different fields in one query, hence the two listeners.
     override fun observeTransfers(householdId: String, myUid: String): Flow<List<ChoreTransferRequest>> =
         combine(
             listen(transfers(householdId).whereEqualTo("toUid", myUid)),
             listen(transfers(householdId).whereEqualTo("fromUid", myUid))
         ) { received, sent -> (received + sent).distinctBy { it.id } }
 
+    // Turns a Firestore query into a Flow of requests that updates live and removes its listener when
+    // the collector goes away. An error makes the flow emit an empty list instead of crashing.
     private fun listen(query: Query): Flow<List<ChoreTransferRequest>> = callbackFlow {
         val registration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
@@ -52,7 +62,10 @@ class ChoreTransferRepository(
         awaitClose { registration.remove() }
     }.catch { emit(emptyList()) }
 
-    // Sending only records the offer. The chore stays with its current assignee.
+    // Writes the offer under an id built from chore, due date and receiver, so one roommate can only ever
+    // have one request document per occurrence. The write is not awaited, so it also works offline.
+    // Callers must not send an id twice: writing over an existing request would reset its answer.
+    // The chore stays with its current assignee.
     override suspend fun sendTransfer(householdId: String, request: ChoreTransferRequest): Result<Unit> =
         runCatching {
             require(request.fromUid != request.toUid) { "Pick a different roommate" }
@@ -61,8 +74,11 @@ class ChoreTransferRepository(
             Unit
         }
 
-    // Accepting moves the chore and keeps who it was first given to. Declining changes nothing on the chore.
-    // Either way the answer and its time are recorded. Needs a connection, so two phones can't both win.
+    // Answers an offer inside one transaction (needs a connection, so two phones can't both win).
+    // Decline: only the request is marked DECLINED; the chore is not touched.
+    // Accept: the request must still be open and the chore must still be exactly what was offered
+    //   (not finished, still with the sender, still the same due date). Then the chore moves to the receiver
+    //   and the original assignee is recorded once per occurrence. If it fails any check, nothing changes.
     override suspend fun respondToTransfer(
         householdId: String,
         request: ChoreTransferRequest,

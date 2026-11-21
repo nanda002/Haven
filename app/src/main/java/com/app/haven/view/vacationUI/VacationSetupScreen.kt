@@ -1,10 +1,8 @@
 package com.app.haven.view.vacationUI
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -15,7 +13,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.app.haven.data.model.Member
 import com.app.haven.domain.chore.Chore
 import com.app.haven.domain.chore.ChoreTransferRequest
 import com.app.haven.domain.chore.TransferStatus
@@ -24,7 +21,9 @@ import com.app.haven.domain.chore.offerFor
 import com.app.haven.domain.chore.vacationBlockedMessage
 import com.app.haven.viewmodel.vacation.VacationSetupViewModel
 
-// Opened when someone switches Vacation Mode on. Every open shared chore has to be finished or handed over first.
+// Opened when someone switches Vacation Mode on. Every open shared chore has to be finished or accepted
+// by a roommate first. Pressing "Hand over my chores" offers each chore to a roommate automatically;
+// a decline moves the chore to the next roommate.
 @Composable
 fun VacationSetupScreen(
     householdId: String,
@@ -35,10 +34,9 @@ fun VacationSetupScreen(
     vm: VacationSetupViewModel = viewModel(factory = VacationSetupViewModel.factory(householdId, myUid))
 ) {
     val pending by vm.pending.collectAsStateWithLifecycle()
-    val selected by vm.selected.collectAsStateWithLifecycle()
-    val recipients by vm.recipient.collectAsStateWithLifecycle()
     val offers by vm.offers.collectAsStateWithLifecycle()
     val roommates by vm.roommates.collectAsStateWithLifecycle()
+    val exhausted by vm.exhausted.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -74,7 +72,8 @@ fun VacationSetupScreen(
                     item {
                         Text(
                             "Before you go, every open household chore has to be finished or handed over. " +
-                                    "A hand-over only counts once the roommate accepts it.",
+                                    "A hand-over only counts once a roommate accepts it. If one declines, " +
+                                    "the chore is offered to the next roommate.",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -86,38 +85,24 @@ fun VacationSetupScreen(
                             )
                         }
                     } else {
-                        item {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(
-                                    checked = list.all { it.id in selected },
-                                    onCheckedChange = { vm.setAll(list.map { c -> c.id }, it) }
-                                )
-                                Text("Select all", style = MaterialTheme.typography.bodyLarge)
-                            }
-                        }
                         items(list, key = { it.id }) { chore ->
                             PendingChoreCard(
                                 chore = chore,
-                                selected = chore.id in selected,
                                 offer = offerFor(offers, chore),
-                                roommates = roommates,
-                                chosenUid = recipients[chore.id],
-                                onToggle = { vm.toggle(chore.id) },
-                                onPick = { uid -> vm.pickRecipient(chore.id, uid) }
+                                noRoommates = roommates.isEmpty(),
+                                allDeclined = chore.id in exhausted
                             )
                         }
                     }
                 }
 
-                val sendCount = list.count {
-                    it.id in selected && recipients[it.id] != null &&
-                            offerFor(offers, it)?.status != TransferStatus.PENDING
-                }
+                // chores that have never been offered to anyone yet
+                val handOverCount = if (roommates.isEmpty()) 0 else list.count { offerFor(offers, it) == null }
                 BottomBar(
                     pendingCount = list.size,
-                    sendCount = sendCount,
+                    handOverCount = handOverCount,
                     busy = busy,
-                    onSend = vm::sendRequests,
+                    onHandOver = vm::sendRequests,
                     onStart = { vm.startVacation(onActivated) },
                     onOpenChores = onOpenChores
                 )
@@ -127,65 +112,45 @@ fun VacationSetupScreen(
     }
 }
 
+// One open chore and where its hand-over stands right now.
 @Composable
 private fun PendingChoreCard(
     chore: Chore,
-    selected: Boolean,
     offer: ChoreTransferRequest?,
-    roommates: List<Member>,
-    chosenUid: String?,
-    onToggle: () -> Unit,
-    onPick: (String) -> Unit
+    noRoommates: Boolean,
+    allDeclined: Boolean
 ) {
     ElevatedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = selected, onCheckedChange = { onToggle() })
-                Column(Modifier.weight(1f)) {
-                    Text(chore.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Due ${formatEpochDay(chore.dueEpochDay)} · Assigned to ${chore.assigneeName}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
+            Text(chore.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Due ${formatEpochDay(chore.dueEpochDay)} · Assigned to ${chore.assigneeName}",
+                style = MaterialTheme.typography.bodySmall
+            )
             when {
-                offer != null && offer.status == TransferStatus.PENDING -> Text(
+                offer?.status == TransferStatus.PENDING -> Text(
                     "Waiting for ${offer.toName} to accept. It stays with you until they do.",
                     style = MaterialTheme.typography.bodySmall
                 )
-                else -> {
-                    if (offer != null && offer.status == TransferStatus.DECLINED) {
-                        Text(
-                            "${offer.toName} declined. It is still yours: pick someone else, or finish it yourself.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                    }
-                    if (selected) {
-                        if (roommates.isEmpty()) {
-                            Text(
-                                "No roommate is available to take it.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        } else {
-                            Text("Hand it to", style = MaterialTheme.typography.labelMedium)
-                            Row(
-                                Modifier.horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                roommates.forEach { m ->
-                                    FilterChip(
-                                        selected = chosenUid == m.uid,
-                                        onClick = { onPick(m.uid) },
-                                        label = { Text(m.displayName) }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                noRoommates -> Text(
+                    "No roommate is available to take it. Finish it yourself in Chores.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                allDeclined -> Text(
+                    "Every roommate declined. It is still yours: finish it yourself in Chores.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                offer?.status == TransferStatus.DECLINED -> Text(
+                    "${offer.toName} declined. Offering it to the next roommate.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+                else -> Text(
+                    "Not handed over yet.",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }
@@ -194,9 +159,9 @@ private fun PendingChoreCard(
 @Composable
 private fun BottomBar(
     pendingCount: Int,
-    sendCount: Int,
+    handOverCount: Int,
     busy: Boolean,
-    onSend: () -> Unit,
+    onHandOver: () -> Unit,
     onStart: () -> Unit,
     onOpenChores: () -> Unit
 ) {
@@ -208,9 +173,9 @@ private fun BottomBar(
             vacationBlockedMessage(pendingCount)?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall)
             }
-            if (sendCount > 0) {
-                Button(onSend, Modifier.fillMaxWidth(), enabled = !busy) {
-                    Text(if (sendCount == 1) "Send 1 request" else "Send $sendCount requests")
+            if (handOverCount > 0) {
+                Button(onHandOver, Modifier.fillMaxWidth(), enabled = !busy) {
+                    Text(if (handOverCount == 1) "Hand over 1 chore" else "Hand over $handOverCount chores")
                 }
             }
             if (pendingCount > 0) {

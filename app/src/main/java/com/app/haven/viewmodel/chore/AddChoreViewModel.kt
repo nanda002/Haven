@@ -119,10 +119,13 @@ class AddChoreViewModel(
     val autoPreview: StateFlow<AutoAssignPreview> = _autoPreview.asStateFlow()
     private var previewJob: Job? = null
 
-    // One seed per form, so the preview and the save break a tie the same way while nothing has changed
+    // One random seed per form. The preview and the save both shuffle with it, so when two roommates are
+    // completely tied they are put in the same order in both, as long as nothing else has changed.
     private val tieSeed = Random.nextLong()
 
-    // Reads membership, history and workload fresh every time, never from an earlier result.
+    // Decides who gets an automatically assigned chore.
+    // Loads members, completions and open chores ONCE from Firebase (fresh, never from an earlier result),
+    // then works out the whole priority order locally. Nothing is fetched per roommate.
     // A repeating chore gets the complete priority order, which is saved on it and never recalculated.
     // A one-time chore only gets its highest-priority roommate, with no order.
     private suspend fun chooseAutomatically(repeating: Boolean = false): AutoChoice {
