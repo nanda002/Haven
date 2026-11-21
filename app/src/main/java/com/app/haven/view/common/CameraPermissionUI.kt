@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -65,24 +66,22 @@ fun CameraCard() {
                     )
         }
 
-    Card(Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    if (enabled) "Camera is on" else "Camera is off",
-                    style = MaterialTheme.typography.titleMedium
-                )
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Camera", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+            Column(Modifier.weight(1f)) {
+                Text(if (enabled) "On" else "Off", style = MaterialTheme.typography.titleMedium)
                 Text(
                     when {
                         enabled -> "You can scan barcodes to add items to the grocery list"
                         blocked -> "Camera access is blocked. Turn it on in settings to scan barcodes"
                         else -> "Turn it on to scan barcodes and add items to the grocery list."
                     },
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
             //adding a switch instead of a button, similar to notifications
@@ -100,6 +99,7 @@ fun CameraCard() {
                 },
                 modifier = Modifier.semantics { contentDescription = "Camera" }
             )
+            }
         }
     }
 }

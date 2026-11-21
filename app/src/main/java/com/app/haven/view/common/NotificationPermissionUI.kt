@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import com.app.haven.HavenApplication
 import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.dp
@@ -85,21 +86,19 @@ fun NotificationsCard() {
         if (granted) turnOn()
     }
 
-    Card(Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    if (enabled) "Notifications are on" else "Notifications are off",
-                    style = MaterialTheme.typography.titleMedium
-                )
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Notifications", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+            Column(Modifier.weight(1f)) {
+                Text(if (enabled) "On" else "Off", style = MaterialTheme.typography.titleMedium)
                 Text(
                     if (enabled) "You'll hear when a roommate adds an expense you're part of!"
                     else "Turn them on to hear when a roommate adds an expense you're part of.",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
             Switch(
@@ -118,6 +117,7 @@ fun NotificationsCard() {
                 },
                 modifier = Modifier.semantics { contentDescription = "Notifications" }
             )
+            }
         }
     }
 }

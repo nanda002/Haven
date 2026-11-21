@@ -26,6 +26,8 @@ import com.app.haven.viewmodel.common.profile.ProfileInfo
 import com.app.haven.viewmodel.common.profile.ProfileUiState
 import com.app.haven.viewmodel.common.profile.ProfileViewModel
 import coil3.compose.AsyncImage
+import com.app.haven.view.common.CameraCard
+import com.app.haven.view.common.NotificationsCard
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -141,20 +143,18 @@ private fun ProfileContent(
             }
         }
 
-        ProfileSection("Settings") {
-            Text(
-                "Notifications, appearance and account options are coming soon.",
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
 
-        //data usage from app
-        ProfileSection("Privacy") {
-            Text(
-                "Coming soon",
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
+        //notifications on/off, with a button to change it
+        NotificationsCard()
+        CameraCard()
+
+//        //data usage from app
+//        ProfileSection("Privacy") {
+//            Text(
+//                "Coming soon",
+//                style = MaterialTheme.typography.bodyMedium
+//            )
+//        }
 
         VacationModeSection(vacation, vacationError, onStartVacation, onEndVacation)
 
