@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.app.haven.actions.expense.ExpenseActions
-import com.app.haven.actions.expense.SettleExpenseActions
+import com.app.haven.actions.ExpenseActions
+import com.app.haven.actions.SettleExpenseActions
 import com.app.haven.appContainer
 import com.app.haven.domain.expense.Balance
 import com.app.haven.domain.expense.Expense
