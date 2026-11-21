@@ -1,9 +1,9 @@
 package com.app.haven.view.groceryItemUI
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -191,15 +192,20 @@ fun MainGroceryItemScreen(
         }
         //showing the suggestions below the add bar
         if (suggestions.isNotEmpty()) {
-            Row(
-                Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(end = 96.dp),
+                shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
+                tonalElevation = 3.dp,
+                shadowElevation = 3.dp
             ) {
-                suggestions.forEach { name ->
-                    SuggestionChip(
-                        onClick = { onAdd(name) { text = ""; onQueryChanged("") } },
-                        label = { Text(name) }
-                    )
+                Column {
+                    suggestions.forEach { name ->
+                        ListItem(
+                            headlineContent = { Text(name) },
+                            leadingContent = { Icon(Icons.Default.Search, contentDescription = null) },
+                            modifier = Modifier.clickable { onAdd(name) { text = ""; onQueryChanged("") } }
+                        )
+                    }
                 }
             }
         }
@@ -218,6 +224,13 @@ fun MainGroceryItemScreen(
                 //into two groups based on the condition !it.bought
                 val (toBuy, bought) = items.partition { !it.bought }
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    item {
+                        Text(
+                            "To Buy",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp)
+                        )
+                    }
                     items(toBuy, key = { it.id }) { item ->
                         GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
                     }

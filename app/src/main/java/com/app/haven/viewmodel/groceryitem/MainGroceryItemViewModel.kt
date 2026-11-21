@@ -58,6 +58,7 @@ class MainGroceryItemViewModel(
         else foodSuggestions.lookUp(q).getOrDefault(emptyList())
             .filter { name -> name.split(" ").any { it.startsWith(q, ignoreCase = true) } }
             .distinctBy { it.lowercase() }
+            .sortedBy { it.length }
             .take(5)
     }
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
