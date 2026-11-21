@@ -39,10 +39,12 @@ import com.app.haven.domain.chore.upNextLabel
 import com.app.haven.viewmodel.chore.ChoresUiState
 import com.app.haven.viewmodel.chore.ChoresViewModel
 
+// Defines the two views of the chore list: chores assigned to the current user
+// and all shared household chores.
 private enum class ChoreTab(val label: String) { MINE("Mine"), EVERYONE("Everyone") }
 
-// Where a chore sits in the list. It follows the chore's current occurrence, so an overdue chore stays
-// visible under Overdue and a repeating chore appears under the date of its next turn.
+// Determines which section a chore belongs to based on its current due date
+// and completion status. Completed chores are kept separate regardless of due date.
 private enum class ChoreSection(val title: String) {
     OVERDUE("Overdue"),
     TODAY("Today"),
@@ -51,6 +53,7 @@ private enum class ChoreSection(val title: String) {
     COMPLETED("Completed")
 }
 
+// Keeps the list grouped according to the current occurrence's due date.
 private fun sectionOf(chore: Chore, today: Long): ChoreSection = when {
     chore.done -> ChoreSection.COMPLETED
     chore.dueEpochDay < today -> ChoreSection.OVERDUE
@@ -59,6 +62,8 @@ private fun sectionOf(chore: Chore, today: Long): ChoreSection = when {
     else -> ChoreSection.UPCOMING
 }
 
+// Displays the household's chores, handles completion, undo and deletion,
+// and lets users switch between their own chores and shared household chores.
 @Composable
 fun ChoresScreen(
     householdId: String,
@@ -75,7 +80,7 @@ fun ChoresScreen(
     val undoSnackbar = remember { SnackbarHostState() }
     var pendingDelete by remember { mutableStateOf<Chore?>(null) }
 
-    // The selected tab lives here, not in the list, so list updates never switch it back.
+    // Preserves the selected tab across recompositions and configuration changes.
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
     val tab = ChoreTab.entries[tabIndex]
     val today = rememberTodayEpochDay()
@@ -84,7 +89,8 @@ fun ChoresScreen(
         error?.let { snackbar.showSnackbar(it); vm.onErrorShown() }
     }
 
-    // after "mark done": shown until the ViewModel's 10 second window ends (it clears undo then)
+    // Keeps the Undo action available while the ViewModel's undo window is active.
+    // Selecting Undo restores the chore through the ViewModel.
     LaunchedEffect(undo) {
         undo?.let { previous ->
             val result = undoSnackbar.showSnackbar(
@@ -214,6 +220,8 @@ private fun ChoreTabs(selected: ChoreTab, onSelect: (ChoreTab) -> Unit) {
     }
 }
 
+// Groups chores by their current status and due date, then displays each group
+// in date order. Completed chores are ordered by their completion date.
 @Composable
 private fun ChoreList(
     chores: List<Chore>,
@@ -262,6 +270,7 @@ private fun ChoreList(
                                         today = today,
                                         showAssignee = showAssignee,
                                         // assignee left the household -> needs someone new (edit to reassign)
+                                        // Shows a warning when a shared chore's assignee is no longer a household member
                                         orphaned = chore.scope == ChoreScope.HOUSEHOLD && !chore.done &&
                                             memberUids.isNotEmpty() && chore.assigneeUid !in memberUids,
                                         onEdit = { onEdit(chore) },
@@ -278,7 +287,8 @@ private fun ChoreList(
     }
 }
 
-// One row: circle, title with its category underneath. Tapping the row opens the details underneath it.
+// Shows the chore's main information in a collapsed row and reveals its
+// assignment, schedule, notes and available actions when expanded
 @Composable
 private fun ChoreItem(
     chore: Chore,
@@ -295,10 +305,15 @@ private fun ChoreItem(
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
     // only dates that need to be read: how late it is, or which day it falls on
+    // Displays the due-date label only when it provides useful information
+    // for an overdue or upcoming chore
     val trailing = when (status) {
         ChoreStatus.OVERDUE, ChoreStatus.UPCOMING -> chore.dueLabel(today).removePrefix("Due ")
         else -> null
     }
+
+    // Shows a replacement-assignee warning instead of the category when
+    // a shared chore's current assignee has left the household
     val secondary = listOfNotNull(
         if (orphaned) "Needs a new assignee" else category.label,
         chore.assigneeName.takeIf { showAssignee && !orphaned && chore.scope == ChoreScope.HOUSEHOLD }
@@ -347,8 +362,10 @@ private fun ChoreItem(
     }
 }
 
-// Outlined circle while unfinished, filled with a check once done. A finished chore can't be un-ticked
-// here: Undo right after completing is the way back.
+// Outlined circle while unfinished, filled with a check once done
+// A finished chore can't be un-ticked
+// Displays the chore's completion control. Completed chores cannot be
+// toggled back here because the Undo action handles immediate reversals
 @Composable
 private fun CompletionCircle(done: Boolean, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme

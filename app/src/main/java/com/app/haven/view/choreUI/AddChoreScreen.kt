@@ -1,6 +1,5 @@
 package com.app.haven.view.choreUI
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,7 +33,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 
-// Add form (choreId = null) and edit form (choreId = an existing chore) share this screen
 @Composable
 fun AddChoreScreen(
     householdId: String,
@@ -75,7 +73,7 @@ private fun ChoreForm(
     val today = rememberTodayEpochDay()
     val isAdd = existing == null
 
-    // Edit starts from the saved chore. Add starts from the draft left on this phone, or an empty form.
+    // Editing starts from the saved chore; creating starts from a restored draft or a new form.
     val form = rememberSaveable(existing?.id, saver = ChoreFormState.Saver) {
         ChoreFormState(
             existing?.let { ChoreDraft.fromChore(it) } ?: restoredDraft ?: ChoreDraft.newChore(myUid, today)
@@ -83,7 +81,7 @@ private fun ChoreForm(
     }
     var showRestored by rememberSaveable { mutableStateOf(isAdd && restoredDraft != null) }
 
-    // Add mode: keep the draft on the phone up to date shortly after the user stops typing
+    // Save unfinished creation forms locally after the user stops making changes.
     if (isAdd) {
         LaunchedEffect(form) {
             snapshotFlow { form.toDraft() }
@@ -96,51 +94,46 @@ private fun ChoreForm(
     var showPicker by rememberSaveable { mutableStateOf(false) }
     var showEndPicker by rememberSaveable { mutableStateOf(false) }
 
-    // edit mode only: true when the user deliberately chose Automatic again. Always starts off,
-    // so saving an ordinary edit never reassigns the chore.
+    // An existing chore is only reassigned automatically when the user explicitly selects Automatic.
     var reassignAuto by rememberSaveable { mutableStateOf(false) }
 
-
-    // "Today" and "Tomorrow" follow the clock. A picked date stays fixed.
+    // Relative dates move with the current day, while a manually selected date remains fixed.
     val dueDay: Long = form.dueOffset?.let { today + it } ?: form.fixedDueDay
 
     val isPersonal = if (isAdd) form.scope == ChoreScope.PERSONAL else existing?.scope == ChoreScope.PERSONAL
     val autoAssign = !isPersonal && (if (isAdd) form.autoAssign else reassignAuto)
     val autoPreview by vm.autoPreview.collectAsStateWithLifecycle()
 
-    // The pick is worked out each time Automatic is shown, and again when the chore is saved
+    // Refresh the preview when Automatic is selected; saving performs a fresh assignment calculation.
     if (autoAssign) {
         LaunchedEffect(Unit) { vm.refreshAutoPreview() }
     }
 
-    // Who can be picked by hand: not on vacation (an existing assignee on vacation stays visible)
+    // Keep an existing assignee visible even if they are on vacation.
     val manualOptions = members.filter { !it.vacation || it.uid == existing?.assigneeUid }
     val chosenMember: Member? = manualOptions.firstOrNull { it.uid == form.assigneeUid }
     val memberLabel = { m: Member -> if (m.uid == myUid) "${m.displayName} (you)" else m.displayName }
 
-    // Edit: the saved assignee has left the household. They stay on the chore (nobody else is
-    // swapped in) until the user deliberately picks a roommate.
+    // Do not silently replace an existing assignee who has left the household.
     val assigneeLeft = existing != null && !isPersonal && members.isNotEmpty() &&
             chosenMember == null && form.assigneeUid == existing.assigneeUid
 
     val assignee: Member? = when {
-        // personal: always me
         isPersonal -> members.firstOrNull { it.uid == myUid }
             ?: existing?.let { Member(uid = it.assigneeUid, displayName = it.assigneeName) }
         chosenMember != null -> chosenMember
-        // edit, still on the saved assignee (also covers the moment before the member list loads)
+        // Preserve the saved assignee while the member list loads or if they are no longer active.
         existing != null && form.assigneeUid == existing.assigneeUid ->
             Member(uid = existing.assigneeUid, displayName = existing.assigneeName, active = false)
-        // new chore: Automatic is decided when saving, Manual needs a pick
+        // Automatic assignment is resolved when saving; manual assignment requires a selection.
         else -> null
     }
 
-    // the name shown in the previews
     val assigneeLabel: String? =
         if (autoAssign) (autoPreview as? AutoAssignPreview.Chosen)?.name else assignee?.displayName
 
     if (showPicker) {
-        // the picker works in UTC midnight millis, which is exactly an epoch day
+        // DatePicker returns UTC-midnight milliseconds, which convert directly to an epoch day.
         val pickerState = rememberDatePickerState(initialSelectedDateMillis = dueDay * 86_400_000L)
         DatePickerDialog(
             onDismissRequest = { showPicker = false },
@@ -161,7 +154,7 @@ private fun ChoreForm(
         val endPickerState = rememberDatePickerState(
             initialSelectedDateMillis = (if (form.endDay > 0L) form.endDay else dueDay) * 86_400_000L,
             selectableDates = object : SelectableDates {
-                // dates before the first scheduled date can't be picked
+                // A repeating chore cannot stop before its first scheduled occurrence.
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean =
                     utcTimeMillis / 86_400_000L >= dueDay
             }
@@ -178,18 +171,16 @@ private fun ChoreForm(
         ) { DatePicker(state = endPickerState) }
     }
 
-    // The form scrolls, the Save bar stays pinned at the bottom (and rides above the keyboard)
+    // Keep the Save action accessible while the form scrolls or the keyboard is open.
     Column(Modifier.fillMaxSize().imePadding()) {
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // closing keeps the draft (add mode), same as the add-expense form
                 Box(Modifier.weight(1f)) {
                     PageHeader(if (isAdd) "Add chore" else "Edit chore", onBack = onDone)
                 }
-                // add mode only: empty the form and delete the draft
                 if (isAdd) {
                     TextButton(onClick = {
                         form.load(ChoreDraft.newChore(myUid, today))
@@ -198,6 +189,7 @@ private fun ChoreForm(
                     }) { Text("Clear") }
                 }
             }
+
             if (isAdd && showRestored) {
                 Text("Restored your unsaved draft", style = MaterialTheme.typography.bodySmall)
             }
@@ -220,7 +212,7 @@ private fun ChoreForm(
                 CategoryPicker(selectedKey = form.categoryKey, onSelect = { form.categoryKey = it })
             }
 
-            // set when the chore is created and can't be changed afterwards (the two kinds are stored separately)
+            // Chore scope determines whether the chore belongs to the household or only to its creator.
             if (isAdd) {
                 FormSection("Chore Type") {
                     CardRow {
@@ -253,7 +245,7 @@ private fun ChoreForm(
                             ChoiceCard(
                                 "Automatic", form.autoAssign, { form.autoAssign = true },
                                 Modifier.weight(1f).fillMaxHeight(),
-                                supporting = "Whoever has done the least"
+                                supporting = "Based on contribution and workload"
                             )
                             ChoiceCard(
                                 "Manual", !form.autoAssign, { form.autoAssign = false },
@@ -293,7 +285,7 @@ private fun ChoreForm(
                         }
                         if (reassignAuto) {
                             Text(
-                                "This will reassign the chore and rebuild the turn order, so everyone currently in the household is included.",
+                                "This will reassign the chore and rebuild the turn order using the current household.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error
                             )
@@ -336,7 +328,7 @@ private fun ChoreForm(
             }
 
             FormSection("Repeat") {
-                // the four choices, plus one extra selected card if the saved chore has some other interval
+                // Preserve a custom interval when editing a chore that doesn't use a standard recurrence option.
                 val options = Recurrence.entries.map { it.label to it.repeatDays } +
                         if (Recurrence.fromRepeatDays(form.repeatDays) == null) {
                             listOf("Every ${form.repeatDays} days" to form.repeatDays)
@@ -354,7 +346,7 @@ private fun ChoreForm(
                 }
             }
 
-            // one-time chores never take turns and have no end date, so these only show for repeating chores
+            // One-time chores do not rotate or need an end date.
             if (form.repeatDays > 0) {
                 if (!isPersonal) FormSection("Take Turns Between Roommates") {
                     CardRow {
@@ -370,8 +362,8 @@ private fun ChoreForm(
                         )
                     }
                     Text(
-                        if (form.rotate) "Roommates take turns according to the chore's schedule. Each scheduled date goes to the next person in the household order."
-                        else "Roommates could take turns according to the chore's schedule. Right now every scheduled date stays with ${assigneeLabel ?: "the same person"}.",
+                        if (form.rotate) "After each completion, the next occurrence goes to the next roommate in the saved rotation order."
+                        else "Every occurrence stays assigned to ${assigneeLabel ?: "the same person"}.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -402,7 +394,7 @@ private fun ChoreForm(
                 }
             }
 
-            // Reads the same state the form saves, so it always matches what will be stored
+            // Generate the preview from the same form values that are passed to save().
             FormSection("Schedule preview") {
                 val preview = schedulePreview(
                     startEpochDay = dueDay,
@@ -484,7 +476,6 @@ private fun ChoreForm(
     }
 }
 
-// A titled group of related settings
 @Composable
 private fun FormSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -501,7 +492,6 @@ private fun FieldLabel(
     Text(text, style = MaterialTheme.typography.labelLarge, color = color)
 }
 
-// A row of equal-height cards: the tallest card sets the height for all of them
 @Composable
 private fun CardRow(content: @Composable RowScope.() -> Unit) {
     Row(
@@ -511,10 +501,9 @@ private fun CardRow(content: @Composable RowScope.() -> Unit) {
     )
 }
 
-// One selectable card per roommate, exactly one can be selected
 @Composable
 private fun MemberChoices(
-    options: List<Pair<String, String>>,   // uid to label
+    options: List<Pair<String, String>>,
     selectedUid: String?,
     onSelect: (String) -> Unit
 ) {
@@ -525,7 +514,6 @@ private fun MemberChoices(
     }
 }
 
-// Under Automatic: who would get the chore, or why nobody can
 @Composable
 private fun AutoAssignSummary(preview: AutoAssignPreview) {
     val unavailable = preview is AutoAssignPreview.Unavailable
@@ -547,7 +535,7 @@ private fun AutoAssignSummary(preview: AutoAssignPreview) {
             )
             if (preview is AutoAssignPreview.Chosen) {
                 Text(
-                    "Based on who has done the least so far. It is checked again when you save.",
+                    "Based on each roommate's contribution compared with their expected share, along with their current workload. Checked again when you save.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

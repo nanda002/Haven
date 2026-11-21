@@ -17,8 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 
-// A rounded, selectable option. Selected = tinted fill, thick colored border and a check mark,
-// so the choice is clear without relying on color alone. Unselected = plain with a thin border.
 @Composable
 fun ChoiceCard(
     label: String,

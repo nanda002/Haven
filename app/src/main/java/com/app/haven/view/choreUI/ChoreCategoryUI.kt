@@ -24,7 +24,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.app.haven.domain.chore.ChoreCategory
 
-// Presentation lives here (domain stays UI-free). Label comes from ChoreCategory.label.
+// Provides the chore category picker, displaying each category as a selectable card
+// with its corresponding icon and highlighting the currently selected category.
 val ChoreCategory.icon: ImageVector
     get() = when (this) {
         ChoreCategory.KITCHEN -> Icons.Default.Kitchen
@@ -36,7 +37,6 @@ val ChoreCategory.icon: ImageVector
         ChoreCategory.OTHER -> Icons.Default.MoreHoriz
     }
 
-// Rounded grid of selectable cards: 4 per row (4 + 3)
 @Composable
 fun CategoryPicker(selectedKey: String?, onSelect: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
