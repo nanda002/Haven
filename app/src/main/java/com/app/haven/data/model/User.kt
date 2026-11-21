@@ -10,5 +10,6 @@ data class User(
     val email: String = "",
     val householdId: String? = null,
     val photoUrl: String? = null,
+    val fcmTokens: List<String> = emptyList(),
     @ServerTimestamp val createdAt: Date? = null
 )

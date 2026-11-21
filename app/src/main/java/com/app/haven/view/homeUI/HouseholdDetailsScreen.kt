@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.app.haven.view.common.NotificationsCard
 import com.app.haven.domain.household.canLeaveHousehold
 import com.app.haven.view.common.PageHeader
 import com.app.haven.view.expenseUI.money
@@ -84,6 +85,10 @@ fun HouseholdDetailsScreen(
                 leaveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         }
+        //notifications on/off, with a button to change it
+        Spacer(Modifier.height(12.dp))
+        NotificationsCard()
+        Spacer(Modifier.height(12.dp))
     }
 }
 

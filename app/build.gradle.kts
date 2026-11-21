@@ -60,6 +60,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-storage")      // profile pictures; version comes from the BOM above
+    implementation("com.google.firebase:firebase-messaging")    // push notifications (FCM), e.g. when a roommate adds an expense
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
     implementation("androidx.navigation:navigation-compose:2.9.0")   // use the newest version Android Studio suggests
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")

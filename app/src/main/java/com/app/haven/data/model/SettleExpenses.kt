@@ -14,7 +14,7 @@ data class SettleExpenses (
     val toUid: String = "",
     val amount: Long = 0L,
     val whoSettled: String = "",
-    val settledInFull: Boolean = false,          // old documents don't have it -> false
+    val settledInFull: Boolean = false,
     @ServerTimestamp val createdAt: Date? = null
 )
 

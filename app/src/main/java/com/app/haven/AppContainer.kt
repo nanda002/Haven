@@ -7,11 +7,16 @@ import com.app.haven.actions.ExpenseActions
 import com.app.haven.actions.ExpenseDraftActions
 import com.app.haven.actions.ExpenseDraftRepository
 import com.app.haven.actions.ExpenseRepository
+import com.app.haven.actions.GroceryItemActions
+import com.app.haven.actions.GroceryItemRepository
 import com.app.haven.actions.HouseholdActions
+import com.app.haven.actions.PushTokenActions
+import com.app.haven.actions.PushTokenRepository
 import com.app.haven.actions.SettleExpenseActions
 import com.app.haven.actions.SettleExpenseRepository
 import com.app.haven.actions.UserActions
 import com.app.haven.data.local.HavenDatabase
+import com.app.haven.notifications.NotificationPrefs
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -43,6 +48,8 @@ class AppContainer(context: Context) {
     val expenseRepository: ExpenseActions = ExpenseRepository(localDb.expenseDao(), firestore)
     val settlementRepository: SettleExpenseActions = SettleExpenseRepository(localDb.settlementDao(), firestore)
     val expenseDraftRepository: ExpenseDraftActions = ExpenseDraftRepository(localDb.expenseDraftDao())
+    val groceryItemRepository: GroceryItemActions = GroceryItemRepository(firestore)
+    val pushTokenRepository: PushTokenActions = PushTokenRepository(auth, firestore, pushOn = { NotificationPrefs.pushOn(context) })
 
     val choreDraftRepository: ChoreDraftActions = ChoreDraftRepository(localDb.choreDraftDao())
 
@@ -55,6 +62,6 @@ class AppContainer(context: Context) {
     }
 }
 
-// lets a ViewModel factory reach the container
+//lets a ViewModel factory reach the container
 fun CreationExtras.appContainer(): AppContainer =
     (this[APPLICATION_KEY] as HavenApplication).container

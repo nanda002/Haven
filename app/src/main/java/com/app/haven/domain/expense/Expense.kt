@@ -9,6 +9,6 @@ data class Expense(
     val category: ExpenseCategory,
     val paidByUid: String,
     val paidByName: String,
-    val shares: Map<String, Long>,     // uid -> cents, must add up to amountCents
+    val shares: Map<String, Long>,
     val createdAtMillis: Long? = null
 )

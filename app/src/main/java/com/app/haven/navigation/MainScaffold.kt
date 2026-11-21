@@ -2,6 +2,7 @@ package com.app.haven.navigation
 
 import com.app.haven.view.vacationUI.VacationSetupScreen
 import com.app.haven.view.choreUI.TransferNotices
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -15,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -28,8 +31,12 @@ import com.app.haven.view.common.profileUI.ProfileScreen
 import com.app.haven.view.expenseUI.AddExpenseScreen
 import com.app.haven.view.expenseUI.LedgerScreen
 import com.app.haven.view.expenseUI.SettleExpenseScreen
+import com.app.haven.view.groceryItemUI.AddUpPricesScreen
+import com.app.haven.view.groceryItemUI.BoughtHistoryScreen
+import com.app.haven.view.groceryItemUI.GroceryListRoute
 import com.app.haven.view.homeUI.HomeScreen
 import com.app.haven.view.homeUI.HouseholdDetailsScreen
+import com.app.haven.viewmodel.expense.ExpensePrefill
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
@@ -37,11 +44,17 @@ private val tabs = listOf(
     Tab("home", "Home", Icons.Default.Home),
     Tab("ledger_tab", "Ledger", Icons.AutoMirrored.Filled.List),
     Tab("chores_tab", "Chores", Icons.Default.Check),
-    Tab("pantry", "Pantry", Icons.Default.ShoppingCart)
+    Tab("grocery_tab", "Grocery", Icons.Default.ShoppingCart)
 )
 
 @Composable
-fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
+fun MainScaffold(
+    onLogout: () -> Unit,
+    onLeftHousehold: () -> Unit,
+    //true after tapping an expense notification
+    openLedger: Boolean = false,
+    onLedgerOpened: () -> Unit = {}
+) {
     //object that remembers the back stack
     val nav = rememberNavController()
     val currentDest = nav.currentBackStackEntryAsState().value?.destination
@@ -59,6 +72,14 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
             popUpTo(nav.graph.findStartDestination().id) { saveState = false }
             launchSingleTop = true
             restoreState = false
+        }
+    }
+
+    //opened from an expense notification to show the ledger
+    LaunchedEffect(openLedger) {
+        if (openLedger) {
+            goToTab("ledger_tab")
+            onLedgerOpened()
         }
     }
 
@@ -97,7 +118,8 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
                     onOpenProfile = { nav.navigate("profile") },
                     onOpenHouseholdDetails = { nav.navigate("household_details") },
                     onOpenLedger = { goToTab("ledger_tab") },
-                    onOpenChores = { goToTab("chores_tab") })
+                    onOpenChores = { goToTab("chores_tab") },
+                    onOpenGrocery = { goToTab("grocery_tab") })
             }
             navigation(startDestination = "ledger", route = "ledger_tab") {
                 composable("ledger") {
@@ -116,9 +138,23 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
                         SettleExpenseScreen(householdId, myUid, onClose = { nav.popBackStack() })
                     }
                 }
-                composable("ledger/add") {
+                // new expense; "ledger/add" alone is a blank form (or the saved draft),
+                // amount (cents) + desc come from the grocery list and start the form filled in,
+                // items = comma-separated grocery item ids, taken off the list once the expense is saved
+                composable(
+                    "ledger/add?amount={amount}&desc={desc}&items={items}",
+                    arguments = listOf(
+                        navArgument("amount") { type = NavType.LongType; defaultValue = -1L },
+                        navArgument("desc") { type = NavType.StringType; nullable = true; defaultValue = null },
+                        navArgument("items") { type = NavType.StringType; nullable = true; defaultValue = null }
+                    )
+                ) { entry ->
+                    val amount = entry.arguments?.getLong("amount") ?: -1L
+                    val desc = entry.arguments?.getString("desc")
+                    val itemIds = entry.arguments?.getString("items").orEmpty().split(",").filter { it.isNotBlank() }
+                    val prefill = if (amount > 0 && desc != null) ExpensePrefill(amount, desc, groceryItemIds = itemIds) else null
                     WithHousehold(userResult) { householdId, myUid ->
-                        AddExpenseScreen(householdId, myUid, onDone = { nav.popBackStack() })
+                        AddExpenseScreen(householdId, myUid, onDone = { nav.popBackStack() }, prefill = prefill)
                     }
                 }
                 // same form as add, pre-filled with the expense
@@ -178,7 +214,41 @@ fun MainScaffold(onLogout: () -> Unit, onLeftHousehold: () -> Unit) {
                 }
             }
 
-            composable("pantry") { Placeholder("Pantry") }    // replace with GroceryScreen
+            // grocery tab: shared list + Enter prices, grouped so the Grocery tab stays highlighted
+            navigation(startDestination = "grocery", route = "grocery_tab") {
+                composable("grocery") {
+                    WithHousehold(userResult) { householdId, myUid ->
+                        GroceryListRoute(
+                            householdId, myUid,
+                            onAddToExpense = { nav.navigate("grocery/prices") },
+                            onShowBought = { nav.navigate("grocery/history") }
+                        )
+                    }
+                }
+                // "Show Bought Items": items grouped under the day they were bought
+                composable("grocery/history") {
+                    WithHousehold(userResult) { householdId, _ ->
+                        BoughtHistoryScreen(householdId, onBack = { nav.popBackStack() })
+                    }
+                }
+                // price per bought item; Continue opens the Add expense form on the Ledger tab, filled in
+                composable("grocery/prices") {
+                    WithHousehold(userResult) { householdId, myUid ->
+                        AddUpPricesScreen(
+                            householdId, myUid,
+                            onClose = { nav.popBackStack() },
+                            onContinue = { amountCents, description, itemIds ->
+                                // switch to the Ledger (so Back from the form lands on the ledger), then open the form
+                                goToTab("ledger_tab")
+                                nav.navigate(
+                                    "ledger/add?amount=$amountCents&desc=${Uri.encode(description)}" +
+                                        "&items=${Uri.encode(itemIds.joinToString(","))}"
+                                )
+                            }
+                        )
+                    }
+                }
+            }
         }
         }
     }

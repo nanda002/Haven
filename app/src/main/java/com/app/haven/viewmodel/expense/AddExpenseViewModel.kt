@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.app.haven.appContainer
 import com.app.haven.actions.ExpenseActions
 import com.app.haven.actions.ExpenseDraftActions
+import com.app.haven.actions.GroceryItemActions
 import com.app.haven.domain.expense.Expense
 import com.app.haven.domain.expense.ExpenseCategory
 import com.app.haven.domain.expense.ExpenseDraft
@@ -55,6 +56,15 @@ data class AddExpenseUiState(
     val lockedMessage: String? = null        // edit mode: someone in the expense left, so it can't be saved
 )
 
+//values to start a new expense with, e.g. from the grocery list's "Add to expense"
+data class ExpensePrefill(
+    val amountCents: Long,
+    val description: String,
+    val category: ExpenseCategory = ExpenseCategory.GROCERIES,
+    //grocery items this expense pays for; taken off the grocery list once it's saved
+    val groceryItemIds: List<String> = emptyList()
+)
+
 //editingExpenseId == null -> adding a new expense, otherwise editing that one
 class AddExpenseViewModel(
     private val repository: ExpenseActions,
@@ -63,15 +73,31 @@ class AddExpenseViewModel(
     members: Flow<List<MemberOption>>,
     private val editingExpenseId: String? = null,
     //unsaved add-expense forms, kept only on this phone
-    private val drafts: ExpenseDraftActions? = null
+    private val drafts: ExpenseDraftActions? = null,
+    //add mode only: start the form with these values instead of the saved draft
+    prefill: ExpensePrefill? = null,
+    //used to take prefill.groceryItemIds off the grocery list after saving
+    private val groceries: GroceryItemActions? = null
 ) : ViewModel() {
+
+    private val groceryItemIds = if (editingExpenseId == null) prefill?.groceryItemIds.orEmpty() else emptyList()
+
+    //drafts only for a plain new expense; a prefilled form leaves the user's saved draft alone
+    private val useDrafts = editingExpenseId == null && prefill == null && drafts != null
 
     private val _uiState = MutableStateFlow(
         AddExpenseUiState(
             paidByUid = myUid,
             isEditing = editingExpenseId != null,
             loadingExpense = editingExpenseId != null
-        )
+        ).let { s ->
+            if (prefill == null || editingExpenseId != null) s
+            else s.copy(
+                description = prefill.description,
+                amountText = centsToText(prefill.amountCents),
+                category = prefill.category
+            )
+        }
     )
     val uiState: StateFlow<AddExpenseUiState> = _uiState.asStateFlow()
 
@@ -91,6 +117,7 @@ class AddExpenseViewModel(
     init {
         viewModelScope.launch {
             members.collect { list ->
+                //member list arrived for the first time
                 val first = !membersInitialized && list.isNotEmpty()
                 if (first) membersInitialized = true
                 _uiState.update { s ->
@@ -109,7 +136,7 @@ class AddExpenseViewModel(
             }
         }
         editingExpenseId?.let { loadExpense(it) }
-        if (editingExpenseId == null && drafts != null) startDrafts(drafts)
+        if (useDrafts && drafts != null) startDrafts(drafts)
     }
 
     //add mode only: fill the form from a saved draft, then keep the draft up to date as the user types
@@ -275,10 +302,12 @@ class AddExpenseViewModel(
             result
                 .onSuccess {
                     //the expense is saved now, so its draft isn't needed anymore
-                    if (editingExpenseId == null) {
+                    if (useDrafts) {
                         draftFinished = true
                         drafts?.deleteDraft(householdId)
                     }
+                    //expense came from the grocery list: those items are paid for now
+                    if (groceryItemIds.isNotEmpty()) groceries?.markAddedToExpense(householdId, groceryItemIds)
                     _uiState.update { it.copy(saveStatus = SaveStatus.SAVED) }
                 }
                 .onFailure { e ->
@@ -304,7 +333,7 @@ class AddExpenseViewModel(
             )
         }
         //deleting the saved draft
-        viewModelScope.launch { drafts?.deleteDraft(householdId) }
+        if (useDrafts) viewModelScope.launch { drafts?.deleteDraft(householdId) }
     }
 
     // ---- helpers ----
@@ -345,7 +374,9 @@ class AddExpenseViewModel(
 
     companion object {
         //the screen asks for this; repositories and members come from the app container
-        fun factory(householdId: String, myUid: String, expenseId: String? = null) = viewModelFactory {
+        fun factory(
+            householdId: String, myUid: String, expenseId: String? = null, prefill: ExpensePrefill? = null
+        ) = viewModelFactory {
             initializer {
                 val container = appContainer()
                 AddExpenseViewModel(
@@ -353,7 +384,9 @@ class AddExpenseViewModel(
                     container.householdActions.observeMembers(householdId)
                         .map { list -> list.map { MemberOption(it.uid, it.displayName) } },
                     editingExpenseId = expenseId,
-                    drafts = container.expenseDraftRepository
+                    drafts = container.expenseDraftRepository,
+                    prefill = prefill,
+                    groceries = container.groceryItemRepository
                 )
             }
         }

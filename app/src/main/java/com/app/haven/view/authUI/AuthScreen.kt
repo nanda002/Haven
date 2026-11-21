@@ -13,6 +13,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.app.haven.domain.InputLimits
+import com.app.haven.view.common.LimitedTextField
 import com.app.haven.viewmodel.auth.AuthViewModel
 
 @Composable
@@ -46,18 +48,37 @@ fun AuthScreen(
             Spacer(Modifier.height(24.dp))
 
             if (isSignUp) {
-                OutlinedTextField(username, { username = it }, label = { Text("Username") },
-                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                LimitedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    maxLength = InputLimits.USERNAME,
+                    label = "Username",
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Spacer(Modifier.height(12.dp))
             }
-            OutlinedTextField(email, { email = it }, label = { Text("Email") }, singleLine = true,
+            LimitedTextField(
+                value = email,
+                onValueChange = { email = it.trim() },
+                maxLength = InputLimits.EMAIL,
+                label = "Email",
+                showCounter = false,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier.fillMaxWidth())
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(password, { password = it }, label = { Text("Password") }, singleLine = true,
+            LimitedTextField(
+                value = password,
+                onValueChange = { password = it },
+                maxLength = InputLimits.PASSWORD_MAX,
+                label = "Password",
+                showCounter = false,
+                error = if (isSignUp && password.isNotEmpty() && password.length < InputLimits.PASSWORD_MIN)
+                    "At least ${InputLimits.PASSWORD_MIN} characters" else null,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth())
+                modifier = Modifier.fillMaxWidth()
+            )
 
             ui.error?.let {
                 Spacer(Modifier.height(8.dp))
