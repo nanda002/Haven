@@ -184,15 +184,15 @@ class HouseholdActions(
             val snap = tx.get(ref)
             if (snap.getBoolean("vacation") == true) {
                 val start = snap.getLong("vacationStartEpochDay") ?: today
-                tx.update(
-                    ref, mapOf(
-                        "vacation" to false,
-                        "vacationStartEpochDay" to 0L,
-                        "vacationPeriods" to FieldValue.arrayUnion(
-                            mapOf("startEpochDay" to start, "endEpochDay" to maxOf(start, today - 1))
-                        )
+                val changes = mutableMapOf<String, Any>("vacation" to false, "vacationStartEpochDay" to 0L)
+                // Vacation days count from the day after it was switched on, so work done that day still counts.
+                // A vacation that hadn't begun yet when it ended leaves no period behind.
+                if (start <= today - 1) {
+                    changes["vacationPeriods"] = FieldValue.arrayUnion(
+                        mapOf("startEpochDay" to start, "endEpochDay" to today - 1)
                     )
-                )
+                }
+                tx.update(ref, changes)
             }
             null
         }.await()

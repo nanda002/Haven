@@ -27,7 +27,9 @@ data class ProfileInfo(
     val joinedAtMillis: Long?,
     val householdName: String?,
     val memberCount: Int,
-    val photoUrl: String?
+    val photoUrl: String?,
+    val uid: String? = null,
+    val householdId: String? = null
 )
 
 //now we describe the different states
@@ -72,7 +74,9 @@ class ProfileViewModel(
                             joinedAtMillis = user.createdAt?.time,
                             householdName = household?.name,
                             memberCount = household?.memberIds?.size ?: 0,
-                            photoUrl = user.photoUrl
+                            photoUrl = user.photoUrl,
+                            uid = user.uid,
+                            householdId = user.householdId
                         )
                     )
                 }
