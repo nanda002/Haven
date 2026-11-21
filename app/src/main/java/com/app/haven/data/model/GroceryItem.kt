@@ -35,6 +35,7 @@ fun GroceryItem.toDomain() = DomainGrocery(
     bought = bought,
     boughtAt = boughtAt,
     addedToExpense = addedToExpense,
+    clearedFromList = clearedFromList,
     createdAtMillis = createdAt?.time
 )
 
@@ -48,4 +49,5 @@ fun DomainGrocery.toData() = GroceryItem(
     bought = bought,
     boughtAt = boughtAt,
     addedToExpense = addedToExpense,
-)
+    clearedFromList = clearedFromList,
+    )

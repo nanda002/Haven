@@ -10,7 +10,7 @@ fun validateGroceryItem(description: String): String? = when {
 }
 
 //items still on the shopping list (not yet part of a saved expense)
-fun List<GroceryItem>.onList(): List<GroceryItem> = filter { !it.addedToExpense }
+fun List<GroceryItem>.onList(): List<GroceryItem> = filter { !it.addedToExpense && !it.clearedFromList }
 
 data class BoughtDay(val dayKey: String?, val items: List<GroceryItem>)
 
