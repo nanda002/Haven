@@ -1,5 +1,7 @@
 package com.app.haven.navigation
 
+import com.app.haven.view.vacationUI.VacationSetupScreen
+import com.app.haven.view.choreUI.TransferNotices
 import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -92,7 +94,7 @@ fun MainScaffold(
                         //basically checks if the current selected tab has any other screens, and this will remain highlighted
                         //if the user goes to those screens
                         selected = currentDest?.hierarchy?.any { it.route == tab.route } == true ||
-                                (tab.route == "home" && currentDest?.route in setOf("profile", "household_details")),
+                                (tab.route == "home" && currentDest?.route in setOf("profile", "household_details", "vacation")),
                         onClick = { goToTab(tab.route) },
                         icon = { Icon(tab.icon, contentDescription = tab.label) },
                         label = { Text(tab.label) }
@@ -101,7 +103,14 @@ fun MainScaffold(
             }
         }
     ) { padding ->
-        NavHost(nav, startDestination = "home", modifier = Modifier.padding(padding)) {
+        Column(Modifier.padding(padding)) {
+            // chores a roommate wants to hand over, and my offers that were declined
+            userResult?.getOrNull()?.let { user ->
+                user.householdId?.let { householdId ->
+                    TransferNotices(householdId, user.uid, onChooseAnother = { nav.navigate("vacation") })
+                }
+            }
+            NavHost(nav, startDestination = "home", modifier = Modifier.weight(1f)) {
             composable("home") {
                 val user = userResult?.getOrNull()
                 HomeScreen(
@@ -159,7 +168,18 @@ fun MainScaffold(
                 }
             }
             // opened from "Profile" in the Home menu
-            composable("profile") { ProfileScreen(onClose = { nav.popBackStack() }, onLogout = onLogout) }
+            composable("profile") { ProfileScreen(onOpenVacationSetup = { nav.navigate("vacation") }, onClose = { nav.popBackStack() }, onLogout = onLogout) }
+            // opened from the Vacation Mode switch on the Profile
+            composable("vacation") {
+                WithHousehold(userResult) { householdId, myUid ->
+                    VacationSetupScreen(
+                        householdId, myUid,
+                        onClose = { nav.popBackStack() },
+                        onOpenChores = { goToTab("chores_tab") },
+                        onActivated = { nav.popBackStack() }
+                    )
+                }
+            }
             composable("household_details") {
                 val user = userResult?.getOrNull()
                 HouseholdDetailsScreen(
@@ -171,17 +191,27 @@ fun MainScaffold(
 
 // chores tab: list screen + add form, grouped so the Chores tab stays highlighted on inner screens
             navigation(startDestination = "chores", route = "chores_tab") {
-                // list of chores with checkboxes; the + button opens the add form
                 composable("chores") {
                     WithHousehold(userResult) { householdId, myUid ->
-                        ChoresScreen(householdId, myUid, onAddChore = { nav.navigate("chores/add") })
+                        ChoresScreen(
+                            householdId, myUid,
+                            onAddChore = { nav.navigate("chores/add") },
+                            onEditChore = { id -> nav.navigate("chores/edit/$id") }
+                        )
                     }
                 }
 
-                // form for a new chore (name, who it's for, due date, repeat)
                 composable("chores/add") {
                     WithHousehold(userResult) { householdId, myUid ->
                         AddChoreScreen(householdId, myUid, onDone = { nav.popBackStack() })
+                    }
+                }
+
+                // same form, filled in with an existing chore
+                composable("chores/edit/{choreId}") { entry ->
+                    val choreId = entry.arguments?.getString("choreId")
+                    WithHousehold(userResult) { householdId, myUid ->
+                        AddChoreScreen(householdId, myUid, choreId = choreId, onDone = { nav.popBackStack() })
                     }
                 }
             }
@@ -236,6 +266,7 @@ fun MainScaffold(
                     }
                 }
             }
+        }
         }
     }
 }

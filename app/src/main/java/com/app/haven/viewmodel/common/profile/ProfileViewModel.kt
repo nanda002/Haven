@@ -1,5 +1,9 @@
 package com.app.haven.viewmodel.common.profile
 
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.Job
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,13 +18,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.app.haven.appContainer
 
+// Vacation Mode as the Profile shows it: on or off, and the first day away
+data class VacationInfo(val on: Boolean, val sinceEpochDay: Long)
+
 data class ProfileInfo(
     val username: String,
     val email: String,
     val joinedAtMillis: Long?,
     val householdName: String?,
     val memberCount: Int,
-    val photoUrl: String?
+    val photoUrl: String?,
+    val uid: String? = null,
+    val householdId: String? = null
 )
 
 //now we describe the different states
@@ -57,6 +66,7 @@ class ProfileViewModel(
                     ProfileUiState.Error("Couldn't load profile")
                 } else {
                     val household = runCatching { households.loadCurrentHousehold() }.getOrNull()
+                    user.householdId?.let { watchVacation(it, user.uid) }
                     ProfileUiState.Success(
                         ProfileInfo(
                             username = user.username,
@@ -64,7 +74,9 @@ class ProfileViewModel(
                             joinedAtMillis = user.createdAt?.time,
                             householdName = household?.name,
                             memberCount = household?.memberIds?.size ?: 0,
-                            photoUrl = user.photoUrl
+                            photoUrl = user.photoUrl,
+                            uid = user.uid,
+                            householdId = user.householdId
                         )
                     )
                 }
@@ -88,6 +100,39 @@ class ProfileViewModel(
             } finally {
                 _uploading.value = false
             }
+        }
+    }
+
+
+    // Vacation Mode: switched on from the Vacation screen (after chores are finished or handed over), switched off here
+    private val _vacation = MutableStateFlow(VacationInfo(on = false, sinceEpochDay = 0L))
+    val vacation: StateFlow<VacationInfo> = _vacation.asStateFlow()
+
+    private val _vacationError = MutableStateFlow<String?>(null)
+    val vacationError: StateFlow<String?> = _vacationError.asStateFlow()
+
+    private var vacationHouseholdId: String? = null
+    private var vacationJob: Job? = null
+
+    private fun watchVacation(householdId: String, uid: String) {
+        vacationHouseholdId = householdId
+        vacationJob?.cancel()
+        vacationJob = households.observeMembers(householdId)
+            .onEach { members ->
+                val me = members.firstOrNull { it.uid == uid }
+                _vacation.value = VacationInfo(me?.vacation == true, me?.vacationStartEpochDay ?: 0L)
+            }
+            .catch { }
+            .launchIn(viewModelScope)
+    }
+
+    // coming back: their contribution counts again from today and they can be given new chores again
+    fun endVacation() {
+        val householdId = vacationHouseholdId ?: return
+        viewModelScope.launch {
+            _vacationError.value = null
+            runCatching { households.endVacation(householdId) }
+                .onFailure { _vacationError.value = it.friendlyMessage() }
         }
     }
 

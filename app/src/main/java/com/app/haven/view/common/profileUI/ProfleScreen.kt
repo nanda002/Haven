@@ -1,5 +1,7 @@
 package com.app.haven.view.common.profileUI
 
+import com.app.haven.domain.chore.formatEpochDay
+import com.app.haven.viewmodel.common.profile.VacationInfo
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,11 +35,14 @@ import java.util.Locale
 fun ProfileScreen(
     onClose: () -> Unit,
     onLogout: () -> Unit,
+    onOpenVacationSetup: () -> Unit = {},
     vm: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory)
 ) {
     val state by vm.ioState.collectAsStateWithLifecycle()
     val uploading by vm.uploading.collectAsStateWithLifecycle()
     val uploadError by vm.uploadError.collectAsStateWithLifecycle()
+    val vacation by vm.vacation.collectAsStateWithLifecycle()
+    val vacationError by vm.vacationError.collectAsStateWithLifecycle()
 
     //Android's photo picker: no storage permission needed; gives back the chosen image (or null if cancelled)
     val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -62,6 +67,8 @@ fun ProfileScreen(
                 }
                 is ProfileUiState.Success -> ProfileContent(
                     s.profile, onLogout, uploading, uploadError,
+                    vacation = vacation, vacationError = vacationError,
+                    onStartVacation = onOpenVacationSetup, onEndVacation = vm::endVacation,
                     onChangePhoto = {
                         pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     }
@@ -77,7 +84,11 @@ private fun ProfileContent(
     onLogout: () -> Unit,
     uploading: Boolean,
     uploadError: String?,
-    onChangePhoto: () -> Unit
+    onChangePhoto: () -> Unit,
+    vacation: VacationInfo,
+    vacationError: String?,
+    onStartVacation: () -> Unit,
+    onEndVacation: () -> Unit
 ) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -145,6 +156,8 @@ private fun ProfileContent(
             )
         }
 
+        VacationModeSection(vacation, vacationError, onStartVacation, onEndVacation)
+
         OutlinedButton(onLogout, Modifier.fillMaxWidth()) { Text("Log out") }
     }
 }
@@ -169,3 +182,31 @@ private fun String.initials(): String =
 //millis -> "Nov 3, 2026"
 private fun Long.longDate(): String =
     SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(this))
+
+// Right above Log out. Switching on opens the Vacation screen, it only turns on after the chores are sorted.
+@Composable
+private fun VacationModeSection(
+    vacation: VacationInfo,
+    error: String?,
+    onStart: () -> Unit,
+    onEnd: () -> Unit
+) {
+    ProfileSection("Vacation Mode") {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(if (vacation.on) "On" else "Off", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    if (vacation.on)
+                        "Since ${formatEpochDay(vacation.sinceEpochDay)}. You won't be given new chores automatically and your contribution is paused."
+                    else
+                        "Turn it on when you are away. You will hand over or finish your open chores first.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Switch(checked = vacation.on, onCheckedChange = { if (it) onStart() else onEnd() })
+        }
+        error?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}

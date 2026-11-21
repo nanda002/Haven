@@ -16,16 +16,20 @@ import com.app.haven.actions.SettleExpenseActions
 import com.app.haven.actions.SettleExpenseRepository
 import com.app.haven.actions.UserActions
 import com.app.haven.data.local.HavenDatabase
+import com.app.haven.notifications.NotificationPrefs
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
-import com.app.haven.actions.ChoreActions
-import com.app.haven.actions.ChoreRepository
+import com.app.haven.actions.chores.ChoreActions
+import com.app.haven.actions.chores.ChoreRepository
+import com.app.haven.actions.chores.ChoreTransferActions
+import com.app.haven.actions.chores.ChoreTransferRepository
+import com.app.haven.actions.chores.ChoreDraftActions
+import com.app.haven.actions.chores.ChoreDraftRepository
 import com.app.haven.data.api.FoodSuggestionActions
 import com.app.haven.data.api.FoodSuggestionRepo
 import com.app.haven.data.api.ProductLookupActions
 import com.app.haven.data.api.ProductLookupRepository
-import com.app.haven.notifications.NotificationPrefs
 
 // Manual dependency injection: the only place that knows about Room and Firebase.
 // It builds the data layer once; ViewModel factories take what they need from here,
@@ -36,7 +40,6 @@ class AppContainer(context: Context) {
     private val localDb = HavenDatabase.get(context)
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
-    val choreRepository: ChoreActions = ChoreRepository(firestore)
 
     private val storage = FirebaseStorage.getInstance()
 
@@ -52,11 +55,16 @@ class AppContainer(context: Context) {
     val productLookupRepository: ProductLookupActions = ProductLookupRepository()
     val foodSuggestionRepository: FoodSuggestionActions = FoodSuggestionRepo()
 
+    val choreDraftRepository: ChoreDraftActions = ChoreDraftRepository(localDb.choreDraftDao())
+    val choreRepository: ChoreActions = ChoreRepository(firestore)
+    val choreTransferRepository: ChoreTransferActions = ChoreTransferRepository(firestore)
+
     // on logout: remove the household's local copy and unsaved drafts, so the next user on this phone doesn't see them
     suspend fun clearLocalData() {
         localDb.expenseDao().clearAll()
         localDb.settlementDao().clearAll()
         localDb.expenseDraftDao().clearAll()
+        localDb.choreDraftDao().clearAll()
     }
 }
 
