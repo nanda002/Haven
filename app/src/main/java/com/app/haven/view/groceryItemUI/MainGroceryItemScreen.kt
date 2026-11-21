@@ -1,6 +1,8 @@
 package com.app.haven.view.groceryItemUI
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -54,6 +56,7 @@ fun GroceryListRoute(
     val items by vm.items.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val scan by vm.scan.collectAsStateWithLifecycle()
+    val suggestions by vm.suggestions.collectAsStateWithLifecycle()
     MainGroceryItemScreen(
         myUid = myUid,
         items = items,
@@ -67,7 +70,9 @@ fun GroceryListRoute(
         onScan = onScan,
         scan = scan,
         onRetryScan = vm::onRetryScan,
-        onScanDismissed = vm::onScanDismissed
+        onScanDismissed = vm::onScanDismissed,
+        suggestions = suggestions,
+        onQueryChanged = vm::onQueryChanged
     )
 }
 
@@ -89,7 +94,9 @@ fun MainGroceryItemScreen(
     onScan: () -> Unit = {},
     scan: ScanState = ScanState.Hidden,
     onRetryScan: () -> Unit = {},
-    onScanDismissed: () -> Unit = {}
+    onScanDismissed: () -> Unit = {},
+    suggestions: List<String> = emptyList(),
+    onQueryChanged: (String) -> Unit = {}
 ) {
     //what the user is typing in the add bar (survives rotation)
     var text by rememberSaveable { mutableStateOf("") }
@@ -106,7 +113,7 @@ fun MainGroceryItemScreen(
     }
     val showBar = boughtByMeCount > 0 && boughtByMeCount > dismissedAtCount
 
-    val submit = { if (text.isNotBlank()) onAdd(text) { text = "" } }
+    val submit = { if (text.isNotBlank()) onAdd(text) { text = ""; onQueryChanged("") } }
 
     //pop up if user decided to edit an entry
     editing?.let { item ->
@@ -165,7 +172,7 @@ fun MainGroceryItemScreen(
         Row(verticalAlignment = Alignment.CenterVertically) {
             LimitedTextField(
                 value = text,
-                onValueChange = { text = it },
+                onValueChange = { text = it; onQueryChanged(it) },
                 maxLength = InputLimits.ITEM,
                 label = "Add an item",
                 keyboardOptions = KeyboardOptions(
@@ -180,6 +187,20 @@ fun MainGroceryItemScreen(
             }
             IconButton(onClick = submit, enabled = text.isNotBlank()) {
                 Icon(Icons.Default.Add, contentDescription = "Add item")
+            }
+        }
+        //showing the suggestions below the add bar
+        if (suggestions.isNotEmpty()) {
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                suggestions.forEach { name ->
+                    SuggestionChip(
+                        onClick = { onAdd(name) { text = ""; onQueryChanged("") } },
+                        label = { Text(name) }
+                    )
+                }
             }
         }
         error?.let {

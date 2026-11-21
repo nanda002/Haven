@@ -46,4 +46,45 @@ fun parseProduct(json: String) : ScannedItem?
     return item
 }
 
+//for usda api
+fun parseResults(json: String) : List<String>
+{
+    val foods = JSONObject(json).optJSONArray("foods") ?: return emptyList()
+
+    //we want just the names of the product so
+    val names = mutableListOf<String>()
+    for (i in 0 until foods.length())
+    {
+        val food = foods.optJSONObject(i) ?: continue
+        if (food.isNull("description")) continue
+        /*
+        "foods": [
+      { "fdcId": 746782, "description": "Milk, whole, 3.25% milkfat", "dataType": "SR Legacy" },
+      { "fdcId": 746776, "description": "Milk, lowfat, fluid, 1% milkfat", "dataType": "SR Legacy" },
+      { "fdcId": 2346404, "description": "Milk chocolate", "dataType": "Foundation" }
+    ]
+         */
+        val name = cleanUsdaName(food.optString("description"))
+        if (name.isNotBlank()) names.add(name)
+    }
+    return names
+}
+
+private val usdaSkipWords = setOf(
+    "raw", "cooked", "canned", "frozen", "fresh", "dried", "boiled", "roasted",
+    "regular", "enriched", "prepared", "unprepared", "commercially prepared",
+    "meat only", "with salt", "without salt", "mature seeds", "fluid", "ns as to form",
+    "smooth style", "chunk style"
+)
+
+fun cleanUsdaName(description: String): String {
+    val parts = description.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    val main = parts.firstOrNull() ?: return ""
+    val variety = parts.getOrNull(1)?.takeIf { v ->
+        v.lowercase() !in usdaSkipWords && v.split(" ").size <= 2
+    }
+    val name = if (variety == null) main else "$variety $main"
+    return name.lowercase().replaceFirstChar { it.uppercase() }
+}
+
 fun ScannedItem.listName(): String = if (brand == null) name else "$name ($brand)"

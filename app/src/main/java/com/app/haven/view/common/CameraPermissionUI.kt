@@ -11,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -24,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -53,43 +55,53 @@ fun CameraCard() {
     }
 
     //whenever the user clicks on the settings, launcher is activated to show android's dialog (when permissions are currently not granted)
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        enabled = granted
-        blocked = !granted && activity != null &&
-                !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.CAMERA)
-    }
+    val launcher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            enabled = granted
+            blocked = !granted && activity != null &&
+                    !ActivityCompat.shouldShowRequestPermissionRationale(
+                        activity,
+                        Manifest.permission.CAMERA
+                    )
+        }
 
     Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                if (enabled) "Camera is on" else "Camera is off",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                when {
-                    enabled -> "You can scan barcodes to add items to the grocery list"
-                    blocked -> "Camera access is blocked. Turn it on in settings to scan barcodes"
-                    else -> "Turn it on to scan barcodes and add items to the grocery list."
-                },
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-        //adding a switch instead of a button, similar to notifications
-        Switch(
-            checked = enabled,
-            onCheckedChange = { wantOn ->
-                when {
-                    //turning it off
-                    !wantOn -> openAppSettings(context)
-                    //turning it on but Android has blocked the dialog
-                    blocked -> openAppSettings(context)
-                    //turning it on and shows the dialog
-                    else -> launcher.launch(Manifest.permission.CAMERA)
-                }
+        Row(
+            Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    if (enabled) "Camera is on" else "Camera is off",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    when {
+                        enabled -> "You can scan barcodes to add items to the grocery list"
+                        blocked -> "Camera access is blocked. Turn it on in settings to scan barcodes"
+                        else -> "Turn it on to scan barcodes and add items to the grocery list."
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            //adding a switch instead of a button, similar to notifications
+            Switch(
+                checked = enabled,
+                onCheckedChange = { wantOn ->
+                    when {
+                        //turning it off
+                        !wantOn -> openAppSettings(context)
+                        //turning it on but Android has blocked the dialog
+                        blocked -> openAppSettings(context)
+                        //turning it on and shows the dialog
+                        else -> launcher.launch(Manifest.permission.CAMERA)
+                    }
                 },
                 modifier = Modifier.semantics { contentDescription = "Camera" }
             )
         }
+    }
 }
 
 fun cameraEnabled(context: Context): Boolean =

@@ -8,18 +8,24 @@ import com.app.haven.actions.GroceryItemActions
 import com.app.haven.actions.HouseholdActions
 import com.app.haven.actions.friendlyMessage
 import com.app.haven.appContainer
+import com.app.haven.data.api.FoodSuggestionActions
 import com.app.haven.data.api.ProductLookupActions
 import com.app.haven.domain.grocerylist.GroceryItem
 import com.app.haven.domain.grocerylist.ScannedItem
 import com.app.haven.domain.grocerylist.onList
 import com.app.haven.domain.grocerylist.validateGroceryItem
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -29,10 +35,32 @@ class MainGroceryItemViewModel(
     households: HouseholdActions,
     private val householdId: String,
     private val myUid: String,
-    private val products: ProductLookupActions
+    private val products: ProductLookupActions,
+    private val foodSuggestions: FoodSuggestionActions
 ) : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    //for suggestions
+    private val query = MutableStateFlow("")
+    //called on every keystroke
+    fun onQueryChanged(text: String) { query.value = text }
+
+    //the pipeline for when the text from the user changes as they type
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+    val suggestions: StateFlow<List<String>> = query
+        .map { it.trim() }
+        //waiting interval for user to finish typing
+    .debounce(350)
+    .distinctUntilChanged()
+    .mapLatest { q ->
+        if (q.length < 2) emptyList()
+        else foodSuggestions.lookUp(q).getOrDefault(emptyList())
+            .filter { name -> name.split(" ").any { it.startsWith(q, ignoreCase = true) } }
+            .distinctBy { it.lowercase() }
+            .take(5)
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _scan = MutableStateFlow<ScanState>(ScanState.Hidden)
     val scan: StateFlow<ScanState> = _scan.asStateFlow()
@@ -117,13 +145,17 @@ class MainGroceryItemViewModel(
         _scan.value = ScanState.Hidden
     }
 
+    fun onQueryTyped() {
+
+    }
+
     fun onErrorShown() { _error.value = null }
 
     companion object {
         fun factory(householdId: String, myUid: String) = viewModelFactory {
             initializer {
                 val c = appContainer()
-                MainGroceryItemViewModel(c.groceryItemRepository, c.householdActions, householdId, myUid, c.productLookupRepository)
+                MainGroceryItemViewModel(c.groceryItemRepository, c.householdActions, householdId, myUid, c.productLookupRepository, c.foodSuggestionRepository)
             }
         }
     }
