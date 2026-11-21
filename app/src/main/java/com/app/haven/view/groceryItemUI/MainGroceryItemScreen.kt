@@ -233,28 +233,45 @@ fun MainGroceryItemScreen(
                 //partition separates the items in the list
                 //into two groups based on the condition !it.bought
                 val (toBuy, bought) = items.partition { !it.bought }
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
                     item {
-                        Text(
-                            "To Buy",
-                            style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp)
-                        )
+                        GrocerySectionCard(
+                            title = "To Buy",
+                            color = MaterialTheme.colorScheme.surfaceContainerLow
+                        ) {
+                            if (toBuy.isEmpty()) {
+                                Text(
+                                    "No pending items to buy!",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+                                )
+                            } else {
+                                toBuy.forEach { item ->
+                                    key(item.id) {
+                                        GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
+                                    }
+                                }
+                            }
+                        }
                     }
-                    items(toBuy, key = { it.id }) { item ->
-                        GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
-                    }
+
                     //list items that are bought
                     if (bought.isNotEmpty()) {
                         item {
-                            Text(
-                                "Bought",
-                                style = MaterialTheme.typography.titleSmall,
-                                modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp)
-                            )
-                        }
-                        items(bought, key = { it.id }) { item ->
-                            GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
+                            GrocerySectionCard(
+                                title = "Bought",
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest
+                            ) {
+                                bought.forEach { item ->
+                                    key(item.id) {
+                                        GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -267,6 +284,28 @@ fun MainGroceryItemScreen(
                 onClear = onDeleteFromBought,
                 onDismiss = { dismissedAtCount = boughtByMeCount }
             )
+        }
+    }
+}
+
+@Composable
+private fun GrocerySectionCard(
+    title: String,
+    color: androidx.compose.ui.graphics.Color,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(containerColor = color),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp)
+    ) {
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 12.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+            )
+            content()
         }
     }
 }
