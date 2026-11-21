@@ -330,9 +330,9 @@ private fun AddToExpenseBar(
             )
             TextButton(onClick = onClear) { Text("Clear items") }
             Button(onClick = onAddToExpense) { Text("Add to expense") }
-            IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = "Dismiss")
-            }
+//            IconButton(onClick = onDismiss) {
+//                Icon(Icons.Default.Close, contentDescription = "Dismiss")
+//            }
         }
     }
 }
