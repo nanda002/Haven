@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.view.common.AskForNotificationsOnce
 import com.app.haven.viewmodel.home.HomeBalanceViewModel
+import com.app.haven.viewmodel.home.HomeExpenseStatsViewModel
 import com.app.haven.viewmodel.home.HomeViewModel
 import com.app.haven.viewmodel.home.HomeChoresViewModel
 import com.app.haven.viewmodel.home.HomeGroceryViewModel
@@ -68,6 +69,7 @@ fun HomeScreen(
                 }
                 if (householdId != null && myUid != null) {
                     BalanceSection(householdId, myUid, onOpenLedger)
+                    ExpenseStatsSection(householdId, myUid)
                     ChoresSection(householdId, myUid, onOpenChores)
                     GrocerySection(householdId, myUid, onOpenGrocery)
                 }
@@ -87,6 +89,16 @@ private fun BalanceSection(
 ) {
     val state by balanceVm.state.collectAsStateWithLifecycle()
     HomeBalanceCard(state, onClick = onOpenLedger)
+}
+
+@Composable
+private fun ExpenseStatsSection(
+    householdId: String,
+    myUid: String,
+    statsVm: HomeExpenseStatsViewModel = viewModel(factory = HomeExpenseStatsViewModel.factory(householdId, myUid))
+) {
+    val state by statsVm.state.collectAsStateWithLifecycle()
+    HomeExpenseStatsCard(state)
 }
 
 @Composable

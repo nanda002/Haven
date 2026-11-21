@@ -4,6 +4,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Android 13+: the app must ask the user before showing notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- barcode scanner on the grocery list (asked for when the scanner opens) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- the camera is optional: phones without one can still install Haven, just without scanning -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
     <application
         android:name=".HavenApplication"
         android:allowBackup="true"

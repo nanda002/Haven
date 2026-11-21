@@ -20,6 +20,7 @@ data class GroceryItem (
     val boughtAt: Long? = null,
     //true once it's part of a saved expense: hidden from the list, still shown in Bought history
     val addedToExpense: Boolean = false,
+    val clearedFromList: Boolean = false,
     @ServerTimestamp val createdAt: Date? = null
 )
 
@@ -34,6 +35,7 @@ fun GroceryItem.toDomain() = DomainGrocery(
     bought = bought,
     boughtAt = boughtAt,
     addedToExpense = addedToExpense,
+    clearedFromList = clearedFromList,
     createdAtMillis = createdAt?.time
 )
 
@@ -47,4 +49,5 @@ fun DomainGrocery.toData() = GroceryItem(
     bought = bought,
     boughtAt = boughtAt,
     addedToExpense = addedToExpense,
-)
+    clearedFromList = clearedFromList,
+    )

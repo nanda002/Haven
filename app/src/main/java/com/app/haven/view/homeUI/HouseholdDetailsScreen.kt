@@ -34,6 +34,7 @@ import com.app.haven.viewmodel.home.HomeViewModel
 import com.app.haven.viewmodel.home.HouseholdMembersViewModel
 import androidx.compose.ui.draw.alpha
 import com.app.haven.view.common.Avatar
+import com.app.haven.view.common.CameraCard
 
 // Household page: name, invite code, members (current + past), leave household
 @Composable
@@ -88,6 +89,8 @@ fun HouseholdDetailsScreen(
         //notifications on/off, with a button to change it
         Spacer(Modifier.height(12.dp))
         NotificationsCard()
+        Spacer(Modifier.height(12.dp))
+        CameraCard()
         Spacer(Modifier.height(12.dp))
     }
 }

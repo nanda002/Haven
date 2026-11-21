@@ -1,7 +1,9 @@
 package com.app.haven.view.groceryItemUI
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
@@ -11,6 +13,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -25,7 +29,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.domain.InputLimits
 import com.app.haven.domain.grocerylist.GroceryItem
 import com.app.haven.view.common.LimitedTextField
+import com.app.haven.domain.grocerylist.listName
 import com.app.haven.viewmodel.groceryitem.MainGroceryItemViewModel
+import com.app.haven.viewmodel.groceryitem.ScanState
 
 //Gets the ViewModel and passes its state and events into the screen below.
 //This is what the "grocery" route in MainScaffold calls.
@@ -37,10 +43,21 @@ fun GroceryListRoute(
     onAddToExpense: () -> Unit = {},
     //"Show Bought Items": opens the bought history
     onShowBought: () -> Unit = {},
+    onScan: () -> Unit = {},
+    scannedCode: String? = null,
+    onScannedCodeHandled: () -> Unit = {},
     vm: MainGroceryItemViewModel = viewModel(factory = MainGroceryItemViewModel.factory(householdId, myUid))
 ) {
+    LaunchedEffect(scannedCode) {
+        scannedCode?.let { code ->
+            vm.onBarcodeScanned(code)
+            onScannedCodeHandled()
+        }
+    }
     val items by vm.items.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
+    val scan by vm.scan.collectAsStateWithLifecycle()
+    val suggestions by vm.suggestions.collectAsStateWithLifecycle()
     MainGroceryItemScreen(
         myUid = myUid,
         items = items,
@@ -50,7 +67,14 @@ fun GroceryListRoute(
         onRename = vm::onRename,
         onDelete = vm::onDelete,
         onAddToExpense = onAddToExpense,
-        onShowBought = onShowBought
+        onDeleteFromBought = vm::onDeleteFromBought,
+        onShowBought = onShowBought,
+        onScan = onScan,
+        scan = scan,
+        onRetryScan = vm::onRetryScan,
+        onScanDismissed = vm::onScanDismissed,
+        suggestions = suggestions,
+        onQueryChanged = vm::onQueryChanged
     )
 }
 
@@ -67,8 +91,15 @@ fun MainGroceryItemScreen(
     onDelete: (String) -> Unit,
     //bottom bar's "Add to expense"
     onAddToExpense: () -> Unit = {},
+    onDeleteFromBought: () -> Unit = {},
     //"Show Bought Items" button
-    onShowBought: () -> Unit = {}
+    onShowBought: () -> Unit = {},
+    onScan: () -> Unit = {},
+    scan: ScanState = ScanState.Hidden,
+    onRetryScan: () -> Unit = {},
+    onScanDismissed: () -> Unit = {},
+    suggestions: List<String> = emptyList(),
+    onQueryChanged: (String) -> Unit = {}
 ) {
     //what the user is typing in the add bar (survives rotation)
     var text by rememberSaveable { mutableStateOf("") }
@@ -85,7 +116,7 @@ fun MainGroceryItemScreen(
     }
     val showBar = boughtByMeCount > 0 && boughtByMeCount > dismissedAtCount
 
-    val submit = { if (text.isNotBlank()) onAdd(text) { text = "" } }
+    val submit = { if (text.isNotBlank()) onAdd(text) { text = ""; onQueryChanged("") } }
 
     //pop up if user decided to edit an entry
     editing?.let { item ->
@@ -123,10 +154,21 @@ fun MainGroceryItemScreen(
         )
     }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    ScanProductDialog(
+        scan = scan,
+        onAddToList = { item -> onAdd(item.listName()) { onScanDismissed() } },
+        onRetry = onRetryScan,
+        onDismiss = onScanDismissed
+    )
+
+    Column(Modifier
+        .fillMaxSize()
+        .padding(horizontal = 16.dp)) {
         //title + button to the bought history (items grouped by the day they were bought)
         Row(
-            Modifier.fillMaxWidth().padding(start = 8.dp, top = 24.dp, bottom = 8.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, top = 24.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Groceries", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
@@ -137,7 +179,7 @@ fun MainGroceryItemScreen(
         Row(verticalAlignment = Alignment.CenterVertically) {
             LimitedTextField(
                 value = text,
-                onValueChange = { text = it },
+                onValueChange = { text = it; onQueryChanged(it) },
                 maxLength = InputLimits.ITEM,
                 label = "Add an item",
                 keyboardOptions = KeyboardOptions(
@@ -147,8 +189,32 @@ fun MainGroceryItemScreen(
                 keyboardActions = KeyboardActions(onDone = { submit() }),
                 modifier = Modifier.weight(1f)
             )
+            IconButton(onClick = onScan) {
+                Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan a barcode")
+            }
             IconButton(onClick = submit, enabled = text.isNotBlank()) {
                 Icon(Icons.Default.Add, contentDescription = "Add item")
+            }
+        }
+        //showing the suggestions below the add bar
+        if (suggestions.isNotEmpty()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 96.dp),
+                shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
+                tonalElevation = 3.dp,
+                shadowElevation = 3.dp
+            ) {
+                Column {
+                    suggestions.forEach { name ->
+                        ListItem(
+                            headlineContent = { Text(name) },
+                            leadingContent = { Icon(Icons.Default.Search, contentDescription = null) },
+                            modifier = Modifier.clickable { onAdd(name) { text = ""; onQueryChanged("") } }
+                        )
+                    }
+                }
             }
         }
         error?.let {
@@ -157,7 +223,9 @@ fun MainGroceryItemScreen(
         Spacer(Modifier.height(8.dp))
 
         //the list takes the space between the add bar and the bottom bar
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+        Box(Modifier
+            .weight(1f)
+            .fillMaxWidth()) {
             if (items.isEmpty()) {
                 Text("Nothing on the list yet", Modifier.align(Alignment.Center))
             } else {
@@ -165,21 +233,45 @@ fun MainGroceryItemScreen(
                 //partition separates the items in the list
                 //into two groups based on the condition !it.bought
                 val (toBuy, bought) = items.partition { !it.bought }
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(toBuy, key = { it.id }) { item ->
-                        GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
+
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    item {
+                        GrocerySectionCard(
+                            title = "To Buy",
+                            color = MaterialTheme.colorScheme.surfaceContainerLow
+                        ) {
+                            if (toBuy.isEmpty()) {
+                                Text(
+                                    "No pending items to buy!",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+                                )
+                            } else {
+                                toBuy.forEach { item ->
+                                    key(item.id) {
+                                        GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
+                                    }
+                                }
+                            }
+                        }
                     }
+
                     //list items that are bought
                     if (bought.isNotEmpty()) {
                         item {
-                            Text(
-                                "Bought",
-                                style = MaterialTheme.typography.titleSmall,
-                                modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp)
-                            )
-                        }
-                        items(bought, key = { it.id }) { item ->
-                            GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
+                            GrocerySectionCard(
+                                title = "Bought",
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest
+                            ) {
+                                bought.forEach { item ->
+                                    key(item.id) {
+                                        GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -189,8 +281,31 @@ fun MainGroceryItemScreen(
             AddToExpenseBar(
                 count = boughtByMeCount,
                 onAddToExpense = onAddToExpense,
+                onClear = onDeleteFromBought,
                 onDismiss = { dismissedAtCount = boughtByMeCount }
             )
+        }
+    }
+}
+
+@Composable
+private fun GrocerySectionCard(
+    title: String,
+    color: androidx.compose.ui.graphics.Color,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(containerColor = color),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp)
+    ) {
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 12.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+            )
+            content()
         }
     }
 }
@@ -231,10 +346,13 @@ fun GroceryRow(
 private fun AddToExpenseBar(
     count: Int,
     onAddToExpense: () -> Unit,
+    onClear: () -> Unit,
     onDismiss: () -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 3.dp,
@@ -249,10 +367,11 @@ private fun AddToExpenseBar(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f)
             )
+            TextButton(onClick = onClear) { Text("Clear items") }
             Button(onClick = onAddToExpense) { Text("Add to expense") }
-            IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = "Dismiss")
-            }
+//            IconButton(onClick = onDismiss) {
+//                Icon(Icons.Default.Close, contentDescription = "Dismiss")
+//            }
         }
     }
 }

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.app.haven.actions.GroceryItemActions
 import com.app.haven.appContainer
 import com.app.haven.domain.grocerylist.GroceryItem
+import com.app.haven.domain.grocerylist.onList
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -19,7 +20,7 @@ class HomeGroceryViewModel(
 ) : ViewModel() {
     val unboughtItems: StateFlow<List<GroceryItem>> = groceryitems.getItems(householdId)
         .map { list ->
-            list.filter { !it.bought }
+            list.onList().filter { !it.bought }
 //                .sortedBy { it.dueEpochDay }
         }
         .catch { emit(emptyList()) }
