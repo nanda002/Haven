@@ -54,13 +54,15 @@ fun contributionCount(
 
 // Calculate contribution percentages from actual completion history.
 // Percentages are calculated among the supplied active, eligible members, so they add up to 100.
+// Only completions made on days when ALL of those members were taking part are compared (in the household and not
+// on vacation). Everyone is measured over the same days, so a new member is not set against work done before they
+// arrived, and a member back from vacation is not set against the work done while they were away.
 fun contributionPercentages(
     members: List<HouseholdMember>,
     completions: List<ChoreCompletion>
 ): Map<String, Double> {
-    val counts = members.associate {
-        it.uid to contributionCount(it, completions)
-    }
+    val shared = completions.filter { done -> members.all { it.participatedOn(done.completedEpochDay) } }
+    val counts = members.associate { it.uid to contributionCount(it, shared) }
 
     val total = counts.values.sum()
 
@@ -146,37 +148,12 @@ private fun datesInWindow(chore: Chore, first: Long, windowEnd: Long): Int {
     return count
 }
 
-// A rate is never worked out over fewer active days than this, so a very recent join date can't make it unstable.
-const val MIN_ACTIVE_DAYS = 7L
-
-const val DAYS_PER_WEEK = 7.0
-
-// Days a roommate has been active in the household, from when they joined up to and including today:
-// every day of every stay (earlier stays included) except the days they were on vacation.
-fun activeDays(member: HouseholdMember, today: Long): Long {
-    val firstDay = minOf(
-        member.joinedEpochDay,
-        member.pastMemberships.minOfOrNull { it.joinedEpochDay } ?: member.joinedEpochDay
-    )
-    if (today < firstDay) return 0L
-    return (firstDay..today).count { member.participatedOn(it) }.toLong()
-}
-
-// The primary assignment ranking number: average household chores completed per active week.
-// Completions made on vacation days or before joining are not counted (see contributionCount), and the
-// active time never drops below MIN_ACTIVE_DAYS.
-fun completionRatePerWeek(
-    member: HouseholdMember,
-    completions: List<ChoreCompletion>,
-    today: Long
-): Double =
-    contributionCount(member, completions) * DAYS_PER_WEEK / maxOf(activeDays(member, today), MIN_ACTIVE_DAYS)
-
-// Every eligible roommate, highest priority first. Ranked by:
-//   1. lowest completion rate per active week
-//   2. lowest contribution percentage
-//   3. lowest upcoming workload
-//   4. random, for anyone still tied (the list is shuffled first and the sort keeps that order for ties)
+// Every eligible roommate, highest priority first:
+//   1. Anyone who has not completed a single household chore yet comes first, in random order,
+//      until everyone has completed at least one.
+//   2. Everyone else, by lowest contribution percentage (compared over the shared participation window).
+//   3. Contribution tied: lowest upcoming workload.
+//   4. Both tied: random (the list is shuffled first and the sorts keep that order for ties).
 // Inactive and vacationing members are left out. Personal chores never reach this: the repository only
 // supplies household chores and completions.
 fun automaticPriorityOrder(
@@ -187,14 +164,15 @@ fun automaticPriorityOrder(
     random: Random = Random.Default
 ): List<HouseholdMember> {
     val eligible = eligibleMembers(members)
+    val (nothingYet, others) = eligible.shuffled(random).partition { contributionCount(it, completions) == 0 }
+    if (others.isEmpty()) return nothingYet
 
-    val rates = eligible.associate { it.uid to completionRatePerWeek(it, completions, today) }
     val shares = contributionPercentages(eligible, completions)
     val workloads = eligible.associate { it.uid to workloadOf(it.uid, openChores, today) }
 
-    return eligible.shuffled(random).sortedWith(
-        compareBy<HouseholdMember> { rates.getValue(it.uid) }
-            .thenBy { shares.getValue(it.uid) }
+    return nothingYet + others.sortedWith(
+        // rounded so that equal shares that differ in the last decimal places still count as tied
+        compareBy<HouseholdMember> { Math.round(shares.getValue(it.uid) * 1_000_000.0) }
             .thenBy { workloads.getValue(it.uid) }
     )
 }

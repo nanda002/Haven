@@ -13,6 +13,7 @@ import com.app.haven.domain.chore.ChoreTransferRequest
 import com.app.haven.domain.chore.TransferStatus
 import com.app.haven.domain.chore.offerFor
 import com.app.haven.domain.chore.pendingForVacation
+import com.app.haven.domain.chore.todayEpochDay
 import com.app.haven.domain.chore.transferId
 import com.app.haven.domain.chore.vacationBlockedMessage
 import com.app.haven.actions.chores.ChoreActions
@@ -138,7 +139,9 @@ class VacationSetupViewModel(
                 _busy.value = false
                 return@launch
             }
-            runCatching { households.startVacation(householdId) }
+            // Counted from tomorrow, so the chores finished today to clear the list still count as contribution.
+            // The member record says "on vacation" straight away, so no new automatic chores are given to them.
+            runCatching { households.startVacation(householdId, today = todayEpochDay() + 1) }
                 .onSuccess { onDone() }
                 .onFailure { _error.value = it.friendlyMessage() }
             _busy.value = false

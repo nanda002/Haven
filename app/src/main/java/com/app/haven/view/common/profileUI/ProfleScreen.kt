@@ -43,7 +43,6 @@ fun ProfileScreen(
     val uploadError by vm.uploadError.collectAsStateWithLifecycle()
     val vacation by vm.vacation.collectAsStateWithLifecycle()
     val vacationError by vm.vacationError.collectAsStateWithLifecycle()
-    var showVacationSetup by remember { mutableStateOf(false) }
 
     //Android's photo picker: no storage permission needed; gives back the chosen image (or null if cancelled)
     val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -66,26 +65,14 @@ fun ProfileScreen(
                     Text(s.message, color = MaterialTheme.colorScheme.error)
                     Button(vm::load) { Text("Retry") }
                 }
-                is ProfileUiState.Success -> {
-                    ProfileContent(
-                        s.profile, onLogout, uploading, uploadError,
-                        vacation = vacation, vacationError = vacationError,
-                        onStartVacation = { showVacationSetup = true }, onEndVacation = vm::endVacation,
-                        onChangePhoto = {
-                            pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        }
-                    )
-                    val householdId = s.profile.householdId
-                    val myUid = s.profile.uid
-                    if (showVacationSetup && householdId != null && myUid != null) {
-                        VacationSetupScreen(
-                            householdId = householdId,
-                            myUid = myUid,
-                            onClose = { showVacationSetup = false },
-                            onStarted = { showVacationSetup = false }
-                        )
+                is ProfileUiState.Success -> ProfileContent(
+                    s.profile, onLogout, uploading, uploadError,
+                    vacation = vacation, vacationError = vacationError,
+                    onStartVacation = onOpenVacationSetup, onEndVacation = vm::endVacation,
+                    onChangePhoto = {
+                        pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     }
-                }
+                )
             }
         }
     }

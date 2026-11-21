@@ -8,8 +8,8 @@ import com.app.haven.actions.expense.ExpenseDraftActions
 import com.app.haven.actions.expense.ExpenseDraftRepository
 import com.app.haven.actions.expense.ExpenseRepository
 import com.app.haven.actions.HouseholdActions
-import com.app.haven.actions.SettleExpenseActions
-import com.app.haven.actions.SettleExpenseRepository
+import com.app.haven.actions.expense.SettleExpenseActions
+import com.app.haven.actions.expense.SettleExpenseRepository
 import com.app.haven.actions.UserActions
 import com.app.haven.data.local.HavenDatabase
 import com.google.firebase.auth.FirebaseAuth

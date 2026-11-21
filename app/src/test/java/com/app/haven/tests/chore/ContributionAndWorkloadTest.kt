@@ -88,11 +88,13 @@ class ContributionAndWorkloadTest {
         assertEquals("b", picked?.uid)
     }
 
-    @Test fun severalMembersWithNoCompletionsAreSeparatedByWorkload() {
+    // those with no completions are chosen at random, whatever their workload (see AutoAssignTest)
+    @Test fun severalMembersWithNoCompletionsAreAllCandidates() {
         val members = listOf(member("a"), member("b"), member("c"))
         val history = done("a", today - 5, count = 3)
         val open = List(3) { chore("b", today + 1) } + chore("c", today + 1)
-        assertEquals("c", pickAutomaticAssignee(members, history, open, today)?.uid)
+        val picked = pickAutomaticAssignee(members, history, open, today)?.uid
+        assertTrue(picked == "b" || picked == "c")
     }
 
     // ---- workload ----
