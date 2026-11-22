@@ -1,4 +1,4 @@
-package com.app.haven.view.householdUI
+package com.app.haven.view.common.householdUI
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*

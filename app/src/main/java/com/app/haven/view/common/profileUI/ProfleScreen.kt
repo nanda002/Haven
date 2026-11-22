@@ -11,7 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +30,7 @@ import com.app.haven.view.common.NotificationsCard
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.app.haven.view.common.PageHeader
 
 //Profile: who the user is, their household, and placeholder settings/privacy sections
 @Composable
@@ -52,10 +52,7 @@ fun ProfileScreen(
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClose) { Icon(Icons.Default.Close, contentDescription = "Close") }
-            Text("Profile", style = MaterialTheme.typography.headlineSmall)
-        }
+        PageHeader("Profile", onBack = onClose)
 
         Box(Modifier.fillMaxSize()) {
             when (val s = state) {

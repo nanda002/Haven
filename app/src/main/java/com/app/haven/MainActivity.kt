@@ -16,7 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.ui.theme.HavenTheme
 import com.app.haven.view.authUI.AuthScreen
-import com.app.haven.view.householdUI.HouseholdSetupScreen
+import com.app.haven.view.common.householdUI.HouseholdSetupScreen
 import com.app.haven.navigation.MainScaffold
 import com.app.haven.notifications.EXTRA_NOTIFICATION_TYPE
 import com.app.haven.notifications.TYPE_EXPENSE
@@ -26,7 +26,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.app.haven.view.authUI.WelcomeScreen
-import androidx.activity.compose.BackHandler
 
 class MainActivity : ComponentActivity() {
 

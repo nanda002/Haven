@@ -1,4 +1,4 @@
-package com.app.haven.view.householdUI
+package com.app.haven.view.common.householdUI
 
 import android.Manifest
 import android.content.Context

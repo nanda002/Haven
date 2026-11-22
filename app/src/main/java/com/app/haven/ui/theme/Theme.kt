@@ -50,7 +50,7 @@ private val LightColorScheme = lightColorScheme(
 
     // cards, nav bar, dialogs, text fields all draw from these
     surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Color(0xFFF7FBFE),
+    surfaceContainerLow = Color(0xFFEAF3FF),
     surfaceContainer = Color(0xFFEAF3FA),
     surfaceContainerHigh = Color(0xFFE3EEF7),
     surfaceContainerHighest = Color(0xFFDCE8F2),

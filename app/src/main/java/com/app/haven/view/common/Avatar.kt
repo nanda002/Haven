@@ -15,12 +15,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun Avatar(
     name: String,
     photoUrl: String?,
     size: Dp = 36.dp,
+    initialsSize: TextUnit = 14.sp,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -41,6 +44,7 @@ fun Avatar(
             Text(
                 initialsOf(name),
                 style = MaterialTheme.typography.labelLarge,
+                fontSize = initialsSize,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
