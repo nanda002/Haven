@@ -91,6 +91,7 @@ dependencies {
     implementation("androidx.camera:camera-compose:1.6.2")                     // CameraXViewfinder: camera preview as a composable (no Android View)
     implementation("androidx.camera:camera-mlkit-vision:1.6.2")                // MlKitAnalyzer: passes camera frames to ML Kit
     implementation("com.google.mlkit:barcode-scanning:17.3.0")                 // ML Kit barcode reader, bundled so it works offline right away
+    implementation("com.google.zxing:core:3.5.3")                              // makes QR code images (ML Kit can only read them)
     testImplementation("org.json:json:20240303")                               // real org.json for unit tests (Android's is only a stub there)
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2") // runTest + test dispatchers for ViewModel tests
 }
