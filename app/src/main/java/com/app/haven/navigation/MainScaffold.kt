@@ -229,6 +229,7 @@ fun MainScaffold(
                             onShowBought = { nav.navigate("grocery/history") },
                             onScan = { nav.navigate("grocery/scan") },
                             scannedCode = scannedCode,
+                            //when the code is sent for the api call, the code can be set to null
                             onScannedCodeHandled = { entry.savedStateHandle["scannedCode"] = null }
                         )
                     }
@@ -236,6 +237,7 @@ fun MainScaffold(
                 composable("grocery/scan") {
                     ScanProductScreen(
                         onScanned = { code ->
+                            //going back to the main grocery screen with the retrieved code
                             nav.previousBackStackEntry?.savedStateHandle?.set("scannedCode", code)
                             nav.popBackStack()
                         },

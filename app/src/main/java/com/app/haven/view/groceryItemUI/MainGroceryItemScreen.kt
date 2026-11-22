@@ -1,5 +1,6 @@
 package com.app.haven.view.groceryItemUI
 
+import android.graphics.fonts.FontStyle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -91,7 +93,7 @@ fun MainGroceryItemScreen(
     onAdd: (name: String, onAdded: () -> Unit) -> Unit,
     //checkbox: mark an item bought / not bought
     onToggleBought: (GroceryItem) -> Unit,
-    onRename: (GroceryItem, String) -> Unit,
+    onRename: (GroceryItem, String, String) -> Unit,
     onDelete: (String) -> Unit,
     //bottom bar's "Add to expense"
     onAddToExpense: () -> Unit = {},
@@ -124,20 +126,34 @@ fun MainGroceryItemScreen(
     //pop up if user decided to edit an entry
     editing?.let { item ->
         var newName by remember(item.id) { mutableStateOf(item.description) }
+        var newNote by remember(item.id) { mutableStateOf(item.note) }
+
         AlertDialog(
             onDismissRequest = { editing = null },
             title = { Text("Edit item") },
             text = {
-                LimitedTextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    maxLength = InputLimits.ITEM,
-                    label = "Item",
-                    shape = RoundedCornerShape(24.dp)
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    //for the item name
+                    LimitedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        maxLength = InputLimits.ITEM,
+                        label = "Item",
+                        shape = RoundedCornerShape(24.dp)
+                    )
+                    //for the item note
+                    LimitedTextField(
+                        value = newNote,
+                        onValueChange = { newNote = it },
+                        maxLength = InputLimits.ITEM_NOTE,
+                        label = "Note (Optional)",
+                        shape = RoundedCornerShape(24.dp),
+                        singleLine = false
+                    )
+                }
             },
             confirmButton = {
-                TextButton({ onRename(item, newName); editing = null }, enabled = newName.isNotBlank()) { Text("Save") }
+                TextButton({ onRename(item, newName, newNote); editing = null }, enabled = newName.isNotBlank()) { Text("Save") }
             },
             dismissButton = { TextButton({ editing = null }) { Text("Cancel") } }
         )
@@ -350,6 +366,31 @@ fun GroceryRow(
                 style = MaterialTheme.typography.bodyLarge,
                 textDecoration = if (item.bought) TextDecoration.LineThrough else null
             )
+            if (item.note.isNotBlank()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Notes,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            item.note,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
             val subtitle = if (item.bought) "Bought by ${item.paidByName}" else "Added by ${item.addedByName}"
             Text(subtitle, style = MaterialTheme.typography.bodySmall)
         }

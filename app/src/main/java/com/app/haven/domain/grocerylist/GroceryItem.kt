@@ -3,6 +3,7 @@ package com.app.haven.domain.grocerylist
 data class GroceryItem(
     val id: String = "",
     val description: String = "",
+    val note: String = "",
     //added by which user
     val addedByUid: String = "",
     val addedByName: String = "",

@@ -123,12 +123,12 @@ class MainGroceryItemViewModel(
         }
     }
 
-    //only the person who added it, and only before it's bought (the screen hides Edit otherwise too)
-    fun onRename(item: GroceryItem, newName: String) {
+    //only the person who added it, and only before it's bought
+    fun onRename(item: GroceryItem, newName: String, newNote: String) {
         if (item.addedByUid != myUid || item.bought) return
         validateGroceryItem(newName)?.let { _error.value = it; return }
         viewModelScope.launch {
-            groceries.updateItem(householdId, item.copy(description = newName.trim()))
+            groceries.updateItem(householdId, item.copy(description = newName.trim(), note = newNote.trim()))
                 .onFailure { _error.value = it.friendlyMessage() }
         }
     }

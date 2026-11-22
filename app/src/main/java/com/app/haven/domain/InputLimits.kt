@@ -2,6 +2,7 @@ package com.app.haven.domain
 
 object InputLimits {
     const val ITEM = 50
+    const val ITEM_NOTE = 200
     const val EXPENSE_DESC = 60
     const val AMOUNT = 8
     const val USERNAME = 20

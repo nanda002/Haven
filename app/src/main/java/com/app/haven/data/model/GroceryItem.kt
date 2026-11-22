@@ -9,6 +9,7 @@ data class GroceryItem (
     @DocumentId val id: String = "",
     //the name that the user gives the grocery item
     val description: String = "",
+    val note: String = "",
     //added by which user
     val addedByUid: String = "",
     val addedByName: String = "",
@@ -28,6 +29,7 @@ data class GroceryItem (
 fun GroceryItem.toDomain() = DomainGrocery(
     id = id,
     description = description,
+    note = note,
     addedByUid = addedByUid,
     addedByName = addedByName,
     paidByUid = paidByUid,
@@ -42,6 +44,7 @@ fun GroceryItem.toDomain() = DomainGrocery(
 fun DomainGrocery.toData() = GroceryItem(
     id = id,
     description = description,
+    note = note,
     addedByUid = addedByUid,
     addedByName = addedByName,
     paidByUid = paidByUid,

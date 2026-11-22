@@ -62,6 +62,7 @@ class GroceryItemRepository(
             groceryitems(householdId).document(groceryitem.id).update(
                 mapOf(
                     "description" to groceryitem.description,
+                    "note" to groceryitem.note
                 )
             ).addOnFailureListener { Log.e("Grocery Item Repo", "update failed on the server") }
             Unit
