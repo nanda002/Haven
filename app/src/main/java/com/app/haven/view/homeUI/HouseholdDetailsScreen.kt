@@ -35,6 +35,8 @@ import com.app.haven.viewmodel.home.HouseholdMembersViewModel
 import androidx.compose.ui.draw.alpha
 import com.app.haven.view.common.Avatar
 import com.app.haven.view.common.CameraCard
+import com.app.haven.view.common.QrCodeImage
+import com.app.haven.view.common.joinQrPayload
 
 // Household page: name, invite code, members (current + past), leave household
 @Composable
@@ -92,6 +94,7 @@ fun HouseholdDetailsScreen(
 // ---------- Invite code: code + regenerate (with confirm) + copy ----------
 
 @Composable
+@Composable
 private fun InviteCodeRow(
     code: String,
     regenerating: Boolean,
@@ -100,16 +103,25 @@ private fun InviteCodeRow(
     val context = LocalContext.current
     var confirming by remember { mutableStateOf(false) }
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Invite code: $code", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.width(4.dp))
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Invite code: $code", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.width(4.dp))
 
-        IconButton(onClick = { confirming = true }, enabled = !regenerating) {
-            Icon(Icons.Default.Refresh, contentDescription = "Generate new invite code")
+            IconButton(onClick = { confirming = true }, enabled = !regenerating) {
+                Icon(Icons.Default.Refresh, contentDescription = "Generate new invite code and QR code")
+            }
+            IconButton(onClick = { copyToClipboard(context, code) }) {
+                Icon(Icons.Default.ContentCopy, contentDescription = "Copy invite code")
+            }
         }
-        IconButton(onClick = { copyToClipboard(context, code) }) {
-            Icon(Icons.Default.ContentCopy, contentDescription = "Copy invite code")
-        }
+        // Redraws by itself whenever the code changes, so regenerating updates it too
+        QrCodeImage(joinQrPayload(code), Modifier.size(220.dp))
+        Text(
+            "Roommates can scan this to join",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 
     if (confirming) {
@@ -117,7 +129,7 @@ private fun InviteCodeRow(
             onDismissRequest = { confirming = false },
             title = { Text("Generate a new invite code?") },
             text = {
-                Text("The current code will stop working right away. Roommates who haven't joined yet will need the new one. Current members aren't affected.")
+                Text("The current code and QR code will stop working right away. Roommates who haven't joined yet will need the new ones. Current members aren't affected.")
             },
             confirmButton = {
                 TextButton({ confirming = false; onRegenerate() }) { Text("Generate") }

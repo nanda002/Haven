@@ -56,7 +56,7 @@ fun ScanProductScreen(
     //setting up camera permission request
     //this function registers a request with android and returns a launcher
     val requestCamera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        //user's results - allow/dont't allow
+        //user's results - allow/dont allow
         hasCamera = granted
         blocked = !granted && (activity == null ||
                 //android blocks the permission dialog shown to the user
