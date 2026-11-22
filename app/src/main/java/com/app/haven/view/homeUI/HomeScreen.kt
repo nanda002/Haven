@@ -1,6 +1,8 @@
 package com.app.haven.view.homeUI
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -63,7 +65,10 @@ fun HomeScreen(
                 HavenTopBar(title = h.name, onMenu = { scope.launch { drawerState.open() } })
             }
             Column(
-                Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 12.dp),
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 when {

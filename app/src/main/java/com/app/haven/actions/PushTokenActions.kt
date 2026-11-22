@@ -25,9 +25,13 @@ class PushTokenRepository(
     private fun userDoc(uid: String) = db.collection("users").document(uid)
 
     override suspend fun saveToken(): Result<Unit> = runCatching {
+
         val uid = auth.currentUser?.uid ?: error("Not signed in")
+        //check if user has turned notifs on/off
         if (!pushOn()) return@runCatching
+
         @Suppress("DEPRECATION")
+        //token retrieved from fcm servers
         val token = messaging.token.await()
         //using arrayUnion to add to array of values
         userDoc(uid).update("fcmTokens", FieldValue.arrayUnion(token))
@@ -45,6 +49,7 @@ class PushTokenRepository(
         Unit
     }.onFailure { Log.w(TAG, "couldn't remove the push token", it) }
 
+    //companion objects belong to the class not the instance
     private companion object {
         const val TAG = "PushTokens"
     }

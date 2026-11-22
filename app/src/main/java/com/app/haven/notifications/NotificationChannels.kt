@@ -7,6 +7,7 @@ import android.os.Build
 import com.app.haven.R
 
 fun createNotificationChannels(context: Context) {
+    //android 8 introduced notification channels
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
     //creating a notificiation channel for expenses
     val expenses = NotificationChannel(
@@ -15,5 +16,6 @@ fun createNotificationChannels(context: Context) {
         //high priority to display the notification banner
         NotificationManager.IMPORTANCE_HIGH
     ).apply { description = context.getString(R.string.channel_expenses_description) }
+    //registers the channel with notif manager
     context.getSystemService(NotificationManager::class.java).createNotificationChannel(expenses)
 }

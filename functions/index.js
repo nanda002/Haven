@@ -56,7 +56,7 @@ async function sendExpenseNotifications({
   for (const userDoc of userDocs) {
     // Getting the user token for each user
     const tokens = userDoc.get("fcmTokens") || [];
-    // Checking if user is part of shares
+    // Checking if user is part of shares (required for editing expense)
     const hasShare = Object.prototype.hasOwnProperty.call(
         shares,
         userDoc.id,
@@ -147,6 +147,9 @@ async function sendAndCleanUp(messages, userDocs, label) {
 exports.notifyOnNewExpense = onDocumentCreated(
     "households/{householdId}/expenses/{expenseId}",
     async (event) => {
+    // event.data is the wrapper around the doc
+    // while event.data.data() is the field and its values
+    // null check
       const expense = event.data && event.data.data();
       if (!expense) return;
 
