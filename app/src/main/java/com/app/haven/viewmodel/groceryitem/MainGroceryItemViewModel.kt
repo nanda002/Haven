@@ -58,11 +58,12 @@ class MainGroceryItemViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    //only what's still on the list, items already in a saved expense are in Bought history instead
+    //only what's still on the list and are not bought yet
     val items: StateFlow<List<GroceryItem>> = allItems
         .map { it.onList() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    //getting member's name
     private val myName: StateFlow<String> = households.observeMembers(householdId)
         .map { list -> list.firstOrNull { it.uid == myUid }?.displayName.orEmpty() }
         .catch { emit("") }

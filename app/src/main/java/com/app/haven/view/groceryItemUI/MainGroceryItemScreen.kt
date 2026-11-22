@@ -48,16 +48,20 @@ fun GroceryListRoute(
     onScannedCodeHandled: () -> Unit = {},
     vm: MainGroceryItemViewModel = viewModel(factory = MainGroceryItemViewModel.factory(householdId, myUid))
 ) {
+    //if scanned code is not null, pass the value to vm
     LaunchedEffect(scannedCode) {
         scannedCode?.let { code ->
             vm.onBarcodeScanned(code)
             onScannedCodeHandled()
         }
     }
+    //viewmodel states, collectAsStateWithLifeCycle() is used for connecting the
+    //viewmodel flow to the UI, starts collection while lifecycle is active
     val items by vm.items.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val scan by vm.scan.collectAsStateWithLifecycle()
     val suggestions by vm.suggestions.collectAsStateWithLifecycle()
+    //passing the viewmodel functions as callbacks
     MainGroceryItemScreen(
         myUid = myUid,
         items = items,
@@ -108,7 +112,6 @@ fun MainGroceryItemScreen(
 
     //bottom bar: items this user bought that are still on the list
     val boughtByMeCount = items.count { it.bought && it.paidByUid == myUid }
-    //count when the user tapped ✕; the bar comes back once they buy more than that
     var dismissedAtCount by rememberSaveable { mutableIntStateOf(0) }
     //unchecking items lowers the count, so lower the dismissed mark too
     LaunchedEffect(boughtByMeCount) {
@@ -162,6 +165,7 @@ fun MainGroceryItemScreen(
         onDismiss = onScanDismissed
     )
 
+    //Building the screen
     Column(Modifier
         .fillMaxSize()
         .padding(horizontal = 16.dp)) {
@@ -173,10 +177,11 @@ fun MainGroceryItemScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Groceries", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+            //show bought items button to show bought items history
             OutlinedButton(onClick = onShowBought) { Text("Show Bought Items") }
         }
 
-        //add bar: type an item, then tap + or the keyboard's Done to add it; the keyboard stays open for the next one
+        //add bar: type an item, then tap +
         Row(verticalAlignment = Alignment.CenterVertically) {
             LimitedTextField(
                 value = text,
@@ -191,9 +196,11 @@ fun MainGroceryItemScreen(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(24.dp)
             )
+            //barcode scanner icon
             IconButton(onClick = onScan) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan a barcode")
             }
+            //'+' button icon
             IconButton(onClick = submit, enabled = text.isNotBlank()) {
                 Icon(Icons.Default.Add, contentDescription = "Add item")
             }
@@ -229,7 +236,7 @@ fun MainGroceryItemScreen(
         }
         Spacer(Modifier.height(8.dp))
 
-        //the list takes the space between the add bar and the bottom bar
+        //the list of bought items takes the space between the add bar and the bottom bar
         Box(Modifier
             .weight(1f)
             .fillMaxWidth()) {
@@ -275,7 +282,9 @@ fun MainGroceryItemScreen(
                             ) {
                                 bought.forEach { item ->
                                     key(item.id) {
-                                        GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
+                                        //for bought section, the last three parameters are not used
+                                        //but kept for format of grocery row
+                                        GroceryRow(item, myUid, onToggleBought, onEdit = {}, onDelete = {})
                                     }
                                 }
                             }
@@ -284,6 +293,8 @@ fun MainGroceryItemScreen(
                 }
             }
         }
+        //bar shown at the bottom of the screen
+        //using animated visibility for smooth in n out transitions
         AnimatedVisibility(visible = showBar) {
             AddToExpenseBar(
                 count = boughtByMeCount,

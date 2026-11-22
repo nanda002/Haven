@@ -55,7 +55,7 @@ fun ScanProductDialog(
         is ScanState.NotFound -> AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text("Product not found") },
-            text = { Text("We couldn't find barcode ${scan.code} in Open Food Facts. You can type the item instead.") },
+            text = { Text("We couldn't find this product in Open Food Facts. You can type the item instead.") },
             confirmButton = { TextButton(onClick = onDismiss) { Text("Type it instead") } }
         )
 

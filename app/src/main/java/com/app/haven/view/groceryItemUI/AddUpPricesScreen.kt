@@ -15,6 +15,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.app.haven.view.common.LimitedTextField
 import com.app.haven.view.expenseUI.money
 import com.app.haven.viewmodel.groceryitem.AddUpPricesViewModel
 import com.app.haven.viewmodel.groceryitem.PriceRow

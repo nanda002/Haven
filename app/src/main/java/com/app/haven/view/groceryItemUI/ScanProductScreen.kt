@@ -44,15 +44,22 @@ fun ScanProductScreen(
     onScanned: (String) -> Unit,
     onClose: () -> Unit
 ) {
+    //context is used for checking system services
+    //in this case, the camera settings
     val context = LocalContext.current
+    //required for showing permissions dialog to user
     val activity = LocalActivity.current
     var hasCamera by remember { mutableStateOf(cameraGranted(context)) }
     var blocked by remember { mutableStateOf(false) }
     var asked by rememberSaveable { mutableStateOf(false) }
 
+    //setting up camera permission request
+    //this function registers a request with android and returns a launcher
     val requestCamera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        //user's results - allow/dont't allow
         hasCamera = granted
         blocked = !granted && (activity == null ||
+                //android blocks the permission dialog shown to the user
             !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.CAMERA))
     }
 
