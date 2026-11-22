@@ -13,6 +13,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.domain.InputLimits
 import com.app.haven.view.common.LimitedTextField
 import com.app.haven.viewmodel.household.HouseholdViewModel
+import androidx.compose.foundation.layout.fillMaxSize
 
 private enum class SetupMode { CHOOSE, CREATE, JOIN }
 
@@ -27,51 +28,67 @@ fun HouseholdSetupScreen(
     var mode by remember { mutableStateOf(SetupMode.CHOOSE) }
     var name by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
+    // JOIN starts on the camera; true once the user chose to type the code instead
+    var manual by remember { mutableStateOf(false) }
+
     //reload who's signed in every time this screen is shown (the account may have changed since last time)
     LaunchedEffect(Unit) { vm.loadUsername() }
 
-    Column(
-        Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Welcome! Let's set up your Haven.", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(24.dp))
+    if (mode == SetupMode.JOIN && !manual) {
+        Box(Modifier.fillMaxSize().systemBarsPadding()) {
+            JoinScanScreen(
+                onCode = { scanned -> code = scanned; vm.join(scanned, onDone) },
+                onEnterManually = { manual = true; vm.clearError() },
+                onBack = { mode = SetupMode.CHOOSE; vm.clearError() },
+                onRetry = { vm.clearError() },
+                joining = ui.loading,
+                error = ui.error
+            )
+        }
+    } else {
+        Column(
+            Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Welcome! Let's set up your Haven.", style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(24.dp))
 
-        when (mode) {
-            SetupMode.CHOOSE -> {
-                Button({ mode = SetupMode.JOIN }, Modifier.fillMaxWidth()) { Text("Join an existing household") }
-                Spacer(Modifier.height(12.dp))
-                OutlinedButton({ mode = SetupMode.CREATE }, Modifier.fillMaxWidth()) { Text("Create a new household") }
-                Spacer(Modifier.height(24.dp))
-                // who is signed in, so it's clear which account is joining or creating
-                username?.let {
-                    Text("Logged in as $it", style = MaterialTheme.typography.bodyMedium)
+            when (mode) {
+                SetupMode.CHOOSE -> {
+                    Button({ mode = SetupMode.JOIN; manual = false }, Modifier.fillMaxWidth()) { Text("Join an existing household") }
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton({ mode = SetupMode.CREATE }, Modifier.fillMaxWidth()) { Text("Create a new household") }
+                    Spacer(Modifier.height(24.dp))
+                    // who is signed in, so it's clear which account is joining or creating
+                    username?.let {
+                        Text("Logged in as $it", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    TextButton(onLogout) { Text("Log out") }
                 }
-                TextButton(onLogout) { Text("Log out") }
-            }
 
-            SetupMode.CREATE -> {
-                OutlinedTextField(name, { name = it }, label = { Text("Household name") },
-                    singleLine = true, modifier = Modifier.fillMaxWidth())
-                FormFooter(ui.error, ui.loading, "Create",
-                    onSubmit = { vm.create(name, onDone) },
-                    onBack = { mode = SetupMode.CHOOSE; vm.clearError() })
-            }
+                SetupMode.CREATE -> {
+                    OutlinedTextField(name, { name = it }, label = { Text("Household name") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                    FormFooter(ui.error, ui.loading, "Create",
+                        onSubmit = { vm.create(name, onDone) },
+                        onBack = { mode = SetupMode.CHOOSE; vm.clearError() })
+                }
 
-            SetupMode.JOIN -> {
-                LimitedTextField(
-                    value = code,
-                    onValueChange = { code = it.uppercase().filter { c -> c.isLetterOrDigit() } },
-                    maxLength = InputLimits.INVITE_CODE,
-                    label = "Invite code",
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                FormFooter(ui.error, ui.loading, "Join",
-                    enabled = code.length == InputLimits.INVITE_CODE,
-                    onSubmit = { vm.join(code, onDone) },
-                    onBack = { mode = SetupMode.CHOOSE; vm.clearError() })
+                SetupMode.JOIN -> {
+                    LimitedTextField(
+                        value = code,
+                        onValueChange = { code = it.uppercase().filter { c -> c.isLetterOrDigit() } },
+                        maxLength = InputLimits.INVITE_CODE,
+                        label = "Invite code",
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    FormFooter(ui.error, ui.loading, "Join",
+                        enabled = code.length == InputLimits.INVITE_CODE,
+                        onSubmit = { vm.join(code, onDone) },
+                        onBack = { manual = false; vm.clearError() })
+                }
             }
         }
     }

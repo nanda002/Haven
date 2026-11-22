@@ -10,9 +10,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -29,14 +32,19 @@ import com.app.haven.view.common.inviteCodeFromScan
 import com.app.haven.view.groceryItemUI.CameraPermissionMessage
 import com.google.mlkit.vision.barcode.common.Barcode
 
-// Opens the camera straight away to scan a household QR code. "Enter code manually" is always at the bottom.
+// UI to open camera when clicked on join household
+// Opens the camera straight away to scan a household QR code. The camera closes as soon as a valid
+// Haven code is read
 @Composable
 fun JoinScanScreen(
     onCode: (String) -> Unit,
     onEnterManually: () -> Unit,
-    joining: Boolean = false,
-    error: String? = null
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    joining: Boolean,
+    error: String?
 ) {
+    // context activity checks or shows system settings
     val context = LocalContext.current
     val activity = LocalActivity.current
     var hasCamera by remember { mutableStateOf(cameraEnabled(context)) }
@@ -45,6 +53,8 @@ fun JoinScanScreen(
     // bumped after a bad scan so the scanner starts again (it stops after its first result)
     var attempt by remember { mutableIntStateOf(0) }
     var notInvite by remember { mutableStateOf(false) }
+    // true once a valid Haven code was read: the camera is removed from the screen while this is true
+    var scanned by remember { mutableStateOf(false) }
 
     val requestCamera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         hasCamera = granted
@@ -52,12 +62,15 @@ fun JoinScanScreen(
                 !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.CAMERA))
     }
 
+    // checks if the camera permission has been granted or requests it
     LaunchedEffect(Unit) {
         if (!hasCamera && !asked) {
             asked = true
             requestCamera.launch(Manifest.permission.CAMERA)
         }
     }
+
+    // enables the camera when they come back to the screen
     LifecycleResumeEffect(Unit) {
         hasCamera = cameraEnabled(context)
         onPauseOrDispose { }
@@ -67,40 +80,67 @@ fun JoinScanScreen(
         Text("Join a household", style = MaterialTheme.typography.headlineSmall)
 
         if (hasCamera) {
-            Box(
-                Modifier.fillMaxWidth().weight(1f).padding(top = 16.dp).clip(RoundedCornerShape(16.dp))
-            ) {
-                key(attempt) {
-                    BarcodeScanner(
-                        formats = listOf(Barcode.FORMAT_QR_CODE),
-                        onScanned = { raw ->
-                            val code = inviteCodeFromScan(raw)
-                            if (code == null) {
-                                notInvite = true
-                                attempt++
-                            } else {
-                                notInvite = false
-                                onCode(code)
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+            if (!scanned) {
+                Box(
+                    Modifier.fillMaxWidth().weight(1f).padding(top = 16.dp).clip(RoundedCornerShape(16.dp))
+                ) {
+                    key(attempt) {
+                        BarcodeScanner(
+                            formats = listOf(Barcode.FORMAT_QR_CODE),
+                            onScanned = { raw ->
+                                val code = inviteCodeFromScan(raw)
+                                if (code == null) {
+                                    notInvite = true
+                                    attempt++
+                                } else {
+                                    notInvite = false
+                                    // removes the camera from the screen
+                                    scanned = true
+                                    onCode(code)
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+                Text(
+                    if (notInvite) "That isn't a Haven invite QR code. Try again."
+                    else "Point the camera at your household's QR code",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (notInvite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
+                )
+            } else {
+                // camera is closed: either joining, or the join failed
+                Column(
+                    Modifier.fillMaxWidth().weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (joining) {
+                        CircularProgressIndicator()
+                        Text("Joining...", style = MaterialTheme.typography.bodyLarge)
+                    } else if (error != null) {
+                        Text(
+                            error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center
+                        )
+                        Button(onClick = {
+                            notInvite = false
+                            scanned = false
+                            attempt++
+                            onRetry()
+                        }) { Text("Scan again") }
+                    }
                 }
             }
-            Text(
-                when {
-                    joining -> "Joining..."
-                    error != null -> error
-                    notInvite -> "That isn't a Haven invite QR code. Try again."
-                    else -> "Point the camera at your household's QR code"
-                },
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (error != null || notInvite) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
-            )
-            OutlinedButton(onClick = onEnterManually, Modifier.fillMaxWidth()) { Text("Enter code manually") }
+            if (!joining) {
+                OutlinedButton(onClick = onEnterManually, Modifier.fillMaxWidth()) { Text("Enter code manually") }
+                TextButton(onClick = onBack, Modifier.fillMaxWidth()) { Text("Back") }
+            }
         } else {
             CameraPermissionMessage(
                 blocked = blocked,
@@ -109,6 +149,7 @@ fun JoinScanScreen(
                 onTypeInstead = onEnterManually,
                 modifier = Modifier.weight(1f)
             )
+            TextButton(onClick = onBack, Modifier.fillMaxWidth()) { Text("Back") }
         }
     }
 }
