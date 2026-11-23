@@ -18,8 +18,7 @@ interface PushTokenActions {
 class PushTokenRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val messaging: FirebaseMessaging = FirebaseMessaging.getInstance(),
-    private val pushOn: () -> Boolean = { true }
+    private val messaging: FirebaseMessaging = FirebaseMessaging.getInstance()
 ) : PushTokenActions {
 
     private fun userDoc(uid: String) = db.collection("users").document(uid)
@@ -27,8 +26,6 @@ class PushTokenRepository(
     override suspend fun saveToken(): Result<Unit> = runCatching {
 
         val uid = auth.currentUser?.uid ?: error("Not signed in")
-        //check if user has turned notifs on/off
-        if (!pushOn()) return@runCatching
 
         @Suppress("DEPRECATION")
         //token retrieved from fcm servers

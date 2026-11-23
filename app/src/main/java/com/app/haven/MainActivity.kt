@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        //checks if app was opened by tapping a notification
         if (savedInstanceState == null) openLedger = intent.isExpenseNotification()
         setContent {
             HavenTheme {
