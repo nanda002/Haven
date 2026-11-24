@@ -70,6 +70,7 @@ fun ChoresScreen(
     myUid: String,
     onAddChore: () -> Unit,
     onEditChore: (String) -> Unit,
+    onOpenHistory: () -> Unit = {},
     vm: ChoresViewModel = viewModel(factory = ChoresViewModel.factory(householdId, myUid))
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
@@ -135,11 +136,19 @@ fun ChoresScreen(
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            Text(
-                "Chores",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 16.dp)
-            )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, top = 24.dp, end = 16.dp, bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Chores",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedButton(onClick = onOpenHistory) { Text("History") }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center

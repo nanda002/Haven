@@ -66,6 +66,7 @@ interface ChoreActions {
     suspend fun respondToTransfer(householdId: String, request: ChoreTransferRequest, accept: Boolean): Result<Unit>
     suspend fun loadAssignmentInputs(householdId: String): Result<AssignmentInputs>
     suspend fun loadOpenChores(householdId: String): Result<List<Chore>>
+    fun observeCompletions(householdId: String): Flow<List<ChoreCompletion>>
 }
 
 // Shared chores live in households/{id}/chores. Personal chores live in their own collection,
@@ -350,6 +351,22 @@ class ChoreRepository(
                 .toObjects(ChoreDoc::class.java)
                 .map { resolveOccurrence(it.toDomain(), today) }
         }
+
+    // Live list of finished chores, newest first. Household chores only, because personal chores
+    // never write completion records. Capped so the screen stays fast in an old household.
+    override fun observeCompletions(householdId: String): Flow<List<ChoreCompletion>> = callbackFlow {
+        val registration = completions(householdId)
+            .orderBy("completedEpochDay", Query.Direction.DESCENDING)
+            .limit(200)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                trySend(snapshot?.toObjects(ChoreCompletionDoc::class.java)?.map { it.toDomain() } ?: emptyList())
+            }
+        awaitClose { registration.remove() }
+    }
 
     // Tries to retrieve the newest data directly from the Firestore server.
     // If the server is unavailable or takes longer than four seconds, it falls back
