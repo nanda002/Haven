@@ -28,9 +28,9 @@ fun openNotificationSettings(context: Context) {
 //flags kept per device
 object NotificationPrefs {
     private const val FILE = "notification_prefs"
+    //if the user was shown the permission dialog
     private const val ASKED_ON_HOME = "asked_on_home"
     private const val REQUESTED_BEFORE = "requested_before"
-    private const val PUSH_ON = "push_on"
 
     private fun prefs(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -39,7 +39,4 @@ object NotificationPrefs {
 
     fun requestedBefore(context: Context) = prefs(context).getBoolean(REQUESTED_BEFORE, false)
     fun markRequested(context: Context) = prefs(context).edit { putBoolean(REQUESTED_BEFORE, true) }
-
-    fun pushOn(context: Context) = prefs(context).getBoolean(PUSH_ON, true)
-    fun setPushOn(context: Context, on: Boolean) = prefs(context).edit { putBoolean(PUSH_ON, on) }
 }

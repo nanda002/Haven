@@ -1,6 +1,5 @@
 package com.app.haven.view.groceryItemUI
 
-import android.graphics.fonts.FontStyle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -36,6 +35,7 @@ import com.app.haven.domain.grocerylist.listName
 import com.app.haven.viewmodel.groceryitem.MainGroceryItemViewModel
 import com.app.haven.viewmodel.groceryitem.ScanState
 import com.app.haven.viewmodel.groceryitem.Suggestion
+import androidx.compose.ui.text.font.FontStyle
 
 @Composable
 fun GroceryListRoute(
@@ -198,7 +198,8 @@ fun MainGroceryItemScreen(
         }
 
         //add bar: type an item, then tap +
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically) {
             LimitedTextField(
                 value = text,
                 onValueChange = { text = it; onQueryChanged(it) },
@@ -392,7 +393,11 @@ fun GroceryRow(
                 }
             }
             val subtitle = if (item.bought) "Bought by ${item.paidByName}" else "Added by ${item.addedByName}"
-            Text(subtitle, style = MaterialTheme.typography.bodySmall)
+            Text(subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                fontStyle = FontStyle.Italic,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)   )
         }
         if (canEdit) {
             IconButton({ onEdit(item) }) { Icon(Icons.Default.Edit, contentDescription = "Edit ${item.description}") }

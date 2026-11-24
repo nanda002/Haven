@@ -16,14 +16,15 @@ import com.google.firebase.messaging.RemoteMessage
 const val EXTRA_NOTIFICATION_TYPE = "type"
 const val TYPE_EXPENSE = "expense"
 
+//Handles Firebase messaging service
 //Receives push messages from FCM
 //Android starts it when a push arrives or the phone's push token changes, even if the app isn't open
+//Google play services stores shared connection to firebase
 class HavenMessagingService : FirebaseMessagingService() {
 
-    //saved under the signed in user so the Cloud Function knows where to send their notifications
+    //when the device gets a new push token
     override fun onNewToken(token: String) {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        if (!NotificationPrefs.pushOn(this)) return
         FirebaseFirestore.getInstance().collection("users").document(uid)
             .update("fcmTokens", FieldValue.arrayUnion(token))
             .addOnFailureListener { Log.e(TAG, "saving the push token failed", it) }
@@ -37,12 +38,12 @@ class HavenMessagingService : FirebaseMessagingService() {
     }
 
     private fun showNotification(title: String, body: String, type: String?) {
+        //getting the notification manager
         val manager = NotificationManagerCompat.from(this)
         //user turned notifications off
         if (!manager.areNotificationsEnabled()) return
-        if (!NotificationPrefs.pushOn(this)) return
 
-        //tapping the notification opens the app
+        //tapping the notification
         //intent is a way to communicate between android objects
         val intent = Intent(this, MainActivity::class.java)
             //these flags are for checking if main activity is present in the back stack
@@ -60,10 +61,10 @@ class HavenMessagingService : FirebaseMessagingService() {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))   //long text isn't cut off when expanded
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(openApp)
-            .setAutoCancel(true)                                         //goes away once tapped
-            .setPriority(NotificationCompat.PRIORITY_HIGH)               //banner on Android 7 (no channels there)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
         try {

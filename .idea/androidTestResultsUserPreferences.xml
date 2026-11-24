@@ -4,12 +4,13 @@
     <option name="androidTestResultsTableState">
       <map>
         <entry key="-528333245">
+        <entry key="-364825624">
           <value>
             <AndroidTestResultsTableState>
               <option name="preferredColumnWidths">
                 <map>
                   <entry key="Duration" value="90" />
-                  <entry key="Pixel_8" value="120" />
+                  <entry key="Pixel_6" value="120" />
                   <entry key="Tests" value="360" />
                 </map>
               </option>

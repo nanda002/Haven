@@ -24,7 +24,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.app.haven.view.common.NotificationsCard
 import com.app.haven.domain.household.canLeaveHousehold
 import com.app.haven.view.common.PageHeader
 import com.app.haven.view.expenseUI.money
@@ -34,7 +33,6 @@ import com.app.haven.viewmodel.home.HomeViewModel
 import com.app.haven.viewmodel.home.HouseholdMembersViewModel
 import androidx.compose.ui.draw.alpha
 import com.app.haven.view.common.Avatar
-import com.app.haven.view.common.CameraCard
 import com.app.haven.view.common.QrCodeImage
 import com.app.haven.view.common.joinQrPayload
 import androidx.compose.foundation.background
