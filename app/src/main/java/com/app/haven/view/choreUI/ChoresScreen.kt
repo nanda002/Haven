@@ -1,5 +1,6 @@
 package com.app.haven.view.choreUI
 
+import android.os.Process.myUid
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,6 +39,7 @@ import com.app.haven.domain.chore.status
 import com.app.haven.domain.chore.upNextLabel
 import com.app.haven.viewmodel.chore.ChoresUiState
 import com.app.haven.viewmodel.chore.ChoresViewModel
+import com.app.haven.domain.chore.canComplete
 
 // Defines the two views of the chore list: chores assigned to the current user
 // and all shared household chores.
@@ -182,6 +184,7 @@ fun ChoresScreen(
                             ChoreList(
                                 chores = visible,
                                 today = today,
+                                myUid = myUid,
                                 showAssignee = tab == ChoreTab.EVERYONE,
                                 memberUids = memberUids,
                                 onEdit = { onEditChore(it.id) },
@@ -235,6 +238,7 @@ private fun ChoreTabs(selected: ChoreTab, onSelect: (ChoreTab) -> Unit) {
 private fun ChoreList(
     chores: List<Chore>,
     today: Long,
+    myUid: String,
     showAssignee: Boolean,
     memberUids: Set<String>,
     onEdit: (Chore) -> Unit,
@@ -284,7 +288,8 @@ private fun ChoreList(
                                             memberUids.isNotEmpty() && chore.assigneeUid !in memberUids,
                                         onEdit = { onEdit(chore) },
                                         onToggle = { onToggle(chore) },
-                                        onDelete = { onDelete(chore) }
+                                        onDelete = { onDelete(chore) },
+                                        allowed = canComplete(chore, myUid, today),
                                     )
                                 }
                             }
@@ -304,6 +309,7 @@ private fun ChoreItem(
     today: Long,
     showAssignee: Boolean,
     orphaned: Boolean,
+    allowed: Boolean,
     onEdit: () -> Unit,
     onToggle: () -> Unit,
     onDelete: () -> Unit
@@ -336,7 +342,7 @@ private fun ChoreItem(
                 .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            CompletionCircle(done = chore.done, onClick = onToggle)
+            CompletionCircle(done = chore.done, enabled = allowed, onClick = onToggle)
             Spacer(Modifier.width(4.dp))
             Column(Modifier.weight(1f)) {
                 Text(
@@ -376,13 +382,13 @@ private fun ChoreItem(
 // Displays the chore's completion control. Completed chores cannot be
 // toggled back here because the Undo action handles immediate reversals
 @Composable
-private fun CompletionCircle(done: Boolean, onClick: () -> Unit) {
+private fun CompletionCircle(done: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Box(
         Modifier
             .size(48.dp)
             .clip(CircleShape)
-            .then(if (done) Modifier else Modifier.clickable(role = Role.Checkbox, onClick = onClick)),
+            .then(if (done || !enabled) Modifier else Modifier.clickable(role = Role.Checkbox, onClick = onClick)),
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -391,7 +397,11 @@ private fun CompletionCircle(done: Boolean, onClick: () -> Unit) {
                 .clip(CircleShape)
                 .then(
                     if (done) Modifier.background(scheme.primary)
-                    else Modifier.border(2.dp, scheme.outline, CircleShape)
+                    else Modifier.border(
+                        2.dp,
+                        if (enabled) scheme.outline else scheme.outlineVariant.copy(alpha = 0.5f),
+                        CircleShape
+                    )
                 ),
             contentAlignment = Alignment.Center
         ) {
@@ -406,7 +416,6 @@ private fun CompletionCircle(done: Boolean, onClick: () -> Unit) {
         }
     }
 }
-
 // Everything else about the chore, kept out of the collapsed row
 @Composable
 private fun ChoreDetails(chore: Chore, today: Long, onEdit: () -> Unit, onDelete: () -> Unit) {
