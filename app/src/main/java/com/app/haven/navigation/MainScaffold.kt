@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.app.haven.view.homeUI.HomeScreen
 import com.app.haven.view.homeUI.HouseholdDetailsScreen
 import com.app.haven.viewmodel.expense.ExpensePrefill
+import com.app.haven.view.choreUI.ChoreHistoryScreen
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
@@ -196,7 +197,8 @@ fun MainScaffold(
                         ChoresScreen(
                             householdId, myUid,
                             onAddChore = { nav.navigate("chores/add") },
-                            onEditChore = { id -> nav.navigate("chores/edit/$id") }
+                            onEditChore = { id -> nav.navigate("chores/edit/$id") },
+                            onOpenHistory = { nav.navigate("chores/history") }
                         )
                     }
                 }
@@ -204,6 +206,11 @@ fun MainScaffold(
                 composable("chores/add") {
                     WithHousehold(userResult) { householdId, myUid ->
                         AddChoreScreen(householdId, myUid, onDone = { nav.popBackStack() })
+                    }
+                }
+                composable("chores/history") {
+                    WithHousehold(userResult) { householdId, _ ->
+                        ChoreHistoryScreen(householdId, onBack = { nav.popBackStack() })
                     }
                 }
 
