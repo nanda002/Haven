@@ -80,6 +80,7 @@ class MainGroceryItemViewModel(
         //waiting interval for user to finish typing
         .debounce(350)
         .distinctUntilChanged()
+        //cancels old requests
         .mapLatest { q ->
             if (q.length < 2) emptyList()
             else foodSuggestions.lookUp(q).getOrDefault(emptyList())

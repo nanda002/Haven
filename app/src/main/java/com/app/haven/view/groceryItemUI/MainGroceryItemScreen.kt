@@ -5,13 +5,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
@@ -109,8 +107,10 @@ fun MainGroceryItemScreen(
 ) {
     //what the user is typing in the add bar (survives rotation)
     var text by rememberSaveable { mutableStateOf("") }
-    var editing by remember { mutableStateOf<GroceryItem?>(null) }
-    var pendingDelete by remember { mutableStateOf<GroceryItem?>(null) }
+    var editingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingDeleteId by rememberSaveable { mutableStateOf<String?>(null) }
+    val editing = items.firstOrNull { it.id == editingId }
+    val pendingDelete = items.firstOrNull { it.id == pendingDeleteId }
 
     //bottom bar: items this user bought that are still on the list
     val boughtByMeCount = items.count { it.bought && it.paidByUid == myUid }
@@ -129,7 +129,7 @@ fun MainGroceryItemScreen(
         var newNote by remember(item.id) { mutableStateOf(item.note) }
 
         AlertDialog(
-            onDismissRequest = { editing = null },
+            onDismissRequest = { editingId = null },
             title = { Text("Edit item") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -153,24 +153,24 @@ fun MainGroceryItemScreen(
                 }
             },
             confirmButton = {
-                TextButton({ onRename(item, newName, newNote); editing = null }, enabled = newName.isNotBlank()) { Text("Save") }
+                TextButton({ onRename(item, newName, newNote); editingId = null }, enabled = newName.isNotBlank()) { Text("Save") }
             },
-            dismissButton = { TextButton({ editing = null }) { Text("Cancel") } }
+            dismissButton = { TextButton({ editingId = null }) { Text("Cancel") } }
         )
     }
 
     //delete confirmation
     pendingDelete?.let { item ->
         AlertDialog(
-            onDismissRequest = { pendingDelete = null },
+            onDismissRequest = { pendingDeleteId = null },
             title = { Text("Delete item?") },
             text = { Text("\"${item.description}\" will be removed for everyone in the household.") },
             confirmButton = {
-                TextButton({ onDelete(item.id); pendingDelete = null }) {
+                TextButton({ onDelete(item.id); pendingDeleteId = null }) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton({ pendingDelete = null }) { Text("Cancel") } }
+            dismissButton = { TextButton({ pendingDeleteId = null }) { Text("Cancel") } }
         )
     }
 
@@ -283,7 +283,7 @@ fun MainGroceryItemScreen(
                             } else {
                                 toBuy.forEach { item ->
                                     key(item.id) {
-                                        GroceryRow(item, myUid, onToggleBought, onEdit = { editing = it }, onDelete = { pendingDelete = it })
+                                        GroceryRow(item, myUid, onToggleBought, onEdit = { editingId = it.id }, onDelete = { pendingDeleteId = it.id })
                                     }
                                 }
                             }

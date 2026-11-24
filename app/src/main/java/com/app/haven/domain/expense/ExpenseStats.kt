@@ -20,7 +20,7 @@ fun currMonthShareStats(
     //for each expense, filter by the user uid, and get the share amount for that user per category
     val total = monthExpenses.map{ it.category to (it.shares[userUid] ?: 0L)}
 
-    //connect to each category
+    //connect to each category and sum the amounts of each expense per category
     return ExpenseCategory.entries.associateWith { category ->
         total.filter { it.first == category }.sumOf { it.second }
     }

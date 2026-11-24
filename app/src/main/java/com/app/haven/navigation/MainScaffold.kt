@@ -104,7 +104,7 @@ fun MainScaffold(
             }
         }
     ) { padding ->
-        Column(Modifier.padding(padding)) {
+        Column(Modifier.padding(padding).consumeWindowInsets(padding)) {
             // chores a roommate wants to hand over, and my offers that were declined
             userResult?.getOrNull()?.let { user ->
                 user.householdId?.let { householdId ->
@@ -264,7 +264,7 @@ fun MainScaffold(
                             householdId, myUid,
                             onClose = { nav.popBackStack() },
                             onContinue = { amountCents, description, itemIds ->
-                                // switch to the Ledger (so Back from the form lands on the ledger), then open the form
+                                //switch to the Ledger (so Back from the form lands on the ledger), then open the form
                                 goToTab("ledger_tab")
                                 nav.navigate(
                                     "ledger/add?amount=$amountCents&desc=${Uri.encode(description)}" +

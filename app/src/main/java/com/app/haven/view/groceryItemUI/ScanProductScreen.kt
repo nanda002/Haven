@@ -76,7 +76,9 @@ fun ScanProductScreen(
         onPauseOrDispose { }
     }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    Column(Modifier
+        .fillMaxSize()
+        .padding(16.dp)) {
         PageHeader(title = "Scan a barcode", onBack = onClose)
 
         if (hasCamera) {
@@ -97,7 +99,9 @@ fun ScanProductScreen(
                 "Point the camera at a product's barcode",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp)
             )
         } else {
             CameraPermissionMessage(
@@ -120,7 +124,9 @@ fun CameraPermissionMessage(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier.fillMaxWidth().padding(24.dp),
+        modifier
+            .fillMaxWidth()
+            .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

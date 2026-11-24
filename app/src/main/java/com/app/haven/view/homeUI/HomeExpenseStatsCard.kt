@@ -109,6 +109,7 @@ private fun CategoryDonut(byCategory: Map<ExpenseCategory, Long>, total: Long) {
             val inset = strokeWidth / 2
             var start = -90f
             slices.forEach { (category, cents) ->
+                //get the angle sweep
                 val sweep = cents.toFloat() / total * 360f
                 drawArc(
                     color = colors.getValue(category),
@@ -119,6 +120,7 @@ private fun CategoryDonut(byCategory: Map<ExpenseCategory, Long>, total: Long) {
                     size = Size(size.width - strokeWidth, size.height - strokeWidth),
                     style = Stroke(width = strokeWidth)
                 )
+                //increment for the next sweep
                 start += sweep
             }
         }

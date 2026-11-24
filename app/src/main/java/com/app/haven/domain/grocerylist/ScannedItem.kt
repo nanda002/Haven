@@ -22,6 +22,7 @@ fun parseProduct(json: String) : ScannedItem?
     val item: ScannedItem
     val root = JSONObject(json)
     val code = root.optString("code")
+    //1 means product was found
     val status = root.optInt("status", 0)
 
     //get the inner json values

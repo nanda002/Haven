@@ -20,7 +20,6 @@ fun groupBoughtByDay(items: List<GroceryItem>, timeZone: TimeZone = TimeZone.get
     val (dated, undated) = bought.partition { it.boughtAt != null }
     val days = dated.groupBy { dayKey(it.boughtAt!!, timeZone) }
         .map { (day, list) -> BoughtDay(day, list) }
-        //"yyyy-MM-dd" sorts by date because of the zero padding
         .sortedByDescending { it.dayKey }
     return if (undated.isEmpty()) days else days + BoughtDay(null, undated)
 }

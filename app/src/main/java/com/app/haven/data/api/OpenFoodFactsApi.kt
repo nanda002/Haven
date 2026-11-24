@@ -33,6 +33,7 @@ class OpenFoodFactsApi(
 
         //make the api call
         client.newCall(request).execute().use { response ->
+            //404 means empty response
             if (!response.isSuccessful && response.code != 404) {
                 throw HttpStatusException(response.code)
             }

@@ -68,6 +68,7 @@ class AddUpPricesViewModel(
         val s = uiState.value
         if (!s.canContinue) return
         val included = s.rows.filter { it.included }.map { it.item }
+        //passes to navigation
         onReady(s.totalCents, "Groceries: " + included.joinToString(", ") { it.description }, included.map { it.id })
     }
 
