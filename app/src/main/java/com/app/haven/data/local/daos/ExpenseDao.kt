@@ -12,8 +12,12 @@ import kotlinx.coroutines.flow.Flow
 interface ExpenseDao {
 
     //live list for the screen; room re-emits whenever the table changes
-    @Query("SELECT * FROM expenses WHERE householdId = :householdId ORDER BY createdAtMillis DESC")
-    fun observe(householdId: String): Flow<List<ExpenseEntity>>
+    @Query("""                                                                                                                                                                                                                        
+      SELECT * FROM expenses WHERE householdId = :householdId                                                                                                                                                                       
+      ORDER BY                                                                                                                                                                                                                      
+          CASE WHEN dateEpochDay > 0 THEN dateEpochDay ELSE createdAtMillis / 86400000 END DESC,                                                                                                                                    
+          COALESCE(createdAtMillis, 9223372036854775807) DESC                                                                                                                                                                       
+  """)    fun observe(householdId: String): Flow<List<ExpenseEntity>>
 
     //replace one household's rows with the latest Firestore snapshot, all or nothing
     @Transaction
