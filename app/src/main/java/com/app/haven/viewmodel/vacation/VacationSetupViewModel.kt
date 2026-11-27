@@ -4,10 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.app.haven.actions.HouseholdActions
+import com.app.haven.actions.household.HouseholdActions
 import com.app.haven.actions.friendlyMessage
 import com.app.haven.appContainer
-import com.app.haven.data.model.Member
+import com.app.haven.data.model.household.Member
 import com.app.haven.domain.chore.Chore
 import com.app.haven.domain.chore.ChoreTransferRequest
 import com.app.haven.domain.chore.TransferStatus
@@ -25,7 +25,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn

@@ -13,7 +13,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.app.haven.data.model.Member
+import com.app.haven.data.model.household.Member
 import com.app.haven.domain.chore.CATEGORY_REQUIRED_MESSAGE
 import com.app.haven.domain.chore.CHORE_NOTES_MAX
 import com.app.haven.domain.chore.Chore

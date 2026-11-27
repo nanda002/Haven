@@ -1,9 +1,9 @@
 package com.app.haven.actions.chores
 
 import android.util.Log
-import com.app.haven.data.model.Chore as ChoreDoc
-import com.app.haven.data.model.toData
-import com.app.haven.data.model.toDomain
+import com.app.haven.data.model.chore.Chore as ChoreDoc
+import com.app.haven.data.model.chore.toData
+import com.app.haven.data.model.chore.toDomain
 import com.app.haven.domain.chore.Chore
 import com.app.haven.domain.chore.ChoreCompletion
 import com.app.haven.domain.chore.ChoreTransferRequest
@@ -22,9 +22,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import com.app.haven.data.model.ChoreCompletionDoc
-import com.app.haven.data.model.ChoreTransferDoc
-import com.app.haven.data.model.Member
+import com.app.haven.data.model.chore.ChoreCompletionDoc
+import com.app.haven.data.model.chore.ChoreTransferDoc
+import com.app.haven.data.model.household.Member
 import com.app.haven.domain.chore.HouseholdMember
 import com.app.haven.domain.chore.MembershipPeriod
 import com.app.haven.domain.chore.VacationPeriod

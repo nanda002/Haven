@@ -6,10 +6,10 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.app.haven.actions.chores.ChoreActions
 import com.app.haven.actions.chores.ChoreDraftActions
-import com.app.haven.actions.HouseholdActions
+import com.app.haven.actions.household.HouseholdActions
 import com.app.haven.actions.friendlyMessage
 import com.app.haven.appContainer
-import com.app.haven.data.model.Member
+import com.app.haven.data.model.household.Member
 import com.app.haven.domain.chore.Chore
 import com.app.haven.domain.chore.ChoreCategory
 import com.app.haven.domain.chore.ChoreDraft

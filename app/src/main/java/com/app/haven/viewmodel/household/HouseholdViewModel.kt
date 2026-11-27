@@ -2,7 +2,7 @@ package com.app.haven.viewmodel.household
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.app.haven.actions.HouseholdActions
+import com.app.haven.actions.household.HouseholdActions
 import com.app.haven.actions.UserActions
 import com.app.haven.actions.friendlyMessage
 import kotlinx.coroutines.flow.MutableStateFlow

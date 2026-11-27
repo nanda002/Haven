@@ -10,5 +10,7 @@ data class Expense(
     val paidByUid: String,
     val paidByName: String,
     val shares: Map<String, Long>,
-    val createdAtMillis: Long? = null
+    val createdAtMillis: Long? = null,
+    val dateEpochDay: Long = 0L,
+    val recurringId: String = ""
 )

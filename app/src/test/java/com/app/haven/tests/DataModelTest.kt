@@ -1,8 +1,8 @@
 package com.app.haven.tests
 
 import android.util.Log
-import com.app.haven.data.model.Household
-import com.app.haven.data.model.Member
+import com.app.haven.data.model.household.Household
+import com.app.haven.data.model.household.Member
 import com.app.haven.data.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue

@@ -1,10 +1,10 @@
 package com.app.haven.actions.chores
 
 import android.util.Log
-import com.app.haven.data.model.Chore as ChoreDoc
-import com.app.haven.data.model.ChoreTransferDoc
-import com.app.haven.data.model.toData
-import com.app.haven.data.model.toDomain
+import com.app.haven.data.model.chore.Chore as ChoreDoc
+import com.app.haven.data.model.chore.ChoreTransferDoc
+import com.app.haven.data.model.chore.toData
+import com.app.haven.data.model.chore.toDomain
 import com.app.haven.domain.chore.ChoreTransferRequest
 import com.app.haven.domain.chore.TransferStatus
 import com.app.haven.domain.chore.resolveOccurrence

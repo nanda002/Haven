@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.app.haven.domain.chore.epochDayOfMillis
+import com.app.haven.domain.chore.todayEpochDay
 import com.app.haven.domain.expense.Expense
 import com.app.haven.domain.expense.ExpenseCategory
 import com.app.haven.viewmodel.expense.LedgerUiState
@@ -186,8 +188,10 @@ fun LedgerScreen(
                                         Text(row.expense.amountCents.money())
                                         Spacer(Modifier.width(8.dp))
                                         //for showing the data when the expense was created
+                                        val day = row.expense.dateEpochDay.takeIf { it > 0L }
+                                            ?: row.expense.createdAtMillis?.let { epochDayOfMillis(it) }
                                         Text(
-                                            row.expense.createdAtMillis?.shortDate() ?: "Pending",
+                                            day?.shortEpochDay() ?: "Pending",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -254,5 +258,14 @@ fun Long.shortDate(): String {
     //including the year
     val pattern = if (year == thisYear) "MMM d" else "MMM d, yyyy"
     return java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault()).format(date)
+}
+
+fun Long.shortEpochDay(): String {
+    val utc = java.util.TimeZone.getTimeZone("UTC")
+    val date = java.util.Date(this * 86_400_000L)
+    val thisYear = java.util.Calendar.getInstance(utc).apply { timeInMillis = todayEpochDay() * 86_400_000L }.get(java.util.Calendar.YEAR)
+    val year = java.util.Calendar.getInstance(utc).apply { time = date }.get(java.util.Calendar.YEAR)
+    val pattern = if (year == thisYear) "MMM d" else "MMM d, yyyy"
+    return java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault()).apply { timeZone = utc }.format(date)
 }
 

@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.app.haven.actions.GroceryItemActions
-import com.app.haven.actions.HouseholdActions
+import com.app.haven.actions.grocery.GroceryItemActions
+import com.app.haven.actions.household.HouseholdActions
 import com.app.haven.actions.friendlyMessage
 import com.app.haven.appContainer
 import com.app.haven.data.api.FoodSuggestionActions

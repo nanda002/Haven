@@ -1,15 +1,15 @@
-package com.app.haven.actions
+package com.app.haven.actions.household
 
-import com.app.haven.data.model.Household
-import com.app.haven.data.model.Member
 import com.app.haven.data.model.User
+import com.app.haven.data.model.household.Household
+import com.app.haven.data.model.household.Member
+import com.app.haven.domain.chore.epochDayOfMillis
+import com.app.haven.domain.chore.todayEpochDay
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Transaction
-import com.app.haven.domain.chore.epochDayOfMillis
-import com.app.haven.domain.chore.todayEpochDay
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -58,8 +58,10 @@ class HouseholdActions(
         batch.update(userRef, "householdId", householdRef.id)
         batch.commit().await()
 
-        return Household(id = householdRef.id, name = name, inviteCode = code,
-            createdBy = uid, memberIds = listOf(uid))
+        return Household(
+            id = householdRef.id, name = name, inviteCode = code,
+            createdBy = uid, memberIds = listOf(uid)
+        )
     }
 
     suspend fun joinHousehold(rawCode: String) {
@@ -222,16 +224,18 @@ class HouseholdActions(
 
     fun observePastMembers(householdId: String): Flow<List<Member>> = observeMembersWhere(householdId, active = false)
 
-    private fun observeMembersWhere(householdId: String, active: Boolean): Flow<List<Member>> = callbackFlow {
-        val registration = db.collection("households").document(householdId).collection("members")
-            .whereEqualTo("active", active)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
-                }
-                trySend(snapshot?.toObjects(Member::class.java) ?: emptyList())
-            }
-        awaitClose { registration.remove() }
-    }
+    private fun observeMembersWhere(householdId: String, active: Boolean): Flow<List<Member>> =
+        callbackFlow {
+            val registration =
+                db.collection("households").document(householdId).collection("members")
+                    .whereEqualTo("active", active)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            close(error)
+                            return@addSnapshotListener
+                        }
+                        trySend(snapshot?.toObjects(Member::class.java) ?: emptyList())
+                    }
+            awaitClose { registration.remove() }
+        }
 }

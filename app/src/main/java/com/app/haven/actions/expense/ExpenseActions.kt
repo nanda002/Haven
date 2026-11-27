@@ -1,12 +1,12 @@
-package com.app.haven.actions
+package com.app.haven.actions.expense
 
 import android.util.Log
 import com.app.haven.data.local.daos.ExpenseDao
 import com.app.haven.data.local.entities.toDomain
 import com.app.haven.data.local.entities.toEntity
-import com.app.haven.data.model.Expense as ExpenseDoc
-import com.app.haven.data.model.toData
-import com.app.haven.data.model.toDomain
+import com.app.haven.data.model.expense.Expense as ExpenseDoc
+import com.app.haven.data.model.expense.toData
+import com.app.haven.data.model.expense.toDomain
 import com.app.haven.domain.expense.Expense
 import com.app.haven.domain.expense.validateShares
 import com.google.firebase.firestore.FirebaseFirestore
@@ -85,7 +85,8 @@ class ExpenseRepository(
                     "category" to expense.category.name,
                     "paidByUid" to expense.paidByUid,
                     "paidByName" to expense.paidByName,
-                    "shares" to expense.shares
+                    "shares" to expense.shares,
+                    "dateEpochDay" to expense.dateEpochDay
                 )
             ).addOnFailureListener { e -> Log.e("Expense Repo", "update failed on the server") }
             Unit

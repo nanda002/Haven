@@ -9,6 +9,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -16,14 +19,17 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.haven.domain.InputLimits
+import com.app.haven.domain.chore.formatFullEpochDay
 import com.app.haven.domain.expense.ExpenseCategory
+import com.app.haven.view.choreUI.ChoiceCard
+import com.app.haven.view.choreUI.rememberTodayEpochDay
 import com.app.haven.view.common.LimitedTextField
 import com.app.haven.viewmodel.expense.AddExpenseViewModel
 import com.app.haven.viewmodel.expense.ExpensePrefill
 import com.app.haven.viewmodel.expense.SaveStatus
 import com.app.haven.viewmodel.expense.SplitMode
 
-// Basic add/edit expense form; every field calls the matching AddExpenseViewModel event.
+// Basic add/edit expense vm.onDateChanged; every field calls the matching AddExpenseViewModel event.
 // Pass expenseId to edit an existing expense, leave it null to add a new one.
 @Composable
 fun AddExpenseScreen(
@@ -36,6 +42,10 @@ fun AddExpenseScreen(
     vm: AddExpenseViewModel = viewModel(factory = AddExpenseViewModel.factory(householdId, myUid, expenseId, prefill))
 ) {
     val s by vm.uiState.collectAsStateWithLifecycle()
+    var showPicker by rememberSaveable { mutableStateOf(false) }
+//    var showEndPicker by rememberSaveable { mutableStateOf(false) }
+    val today = rememberTodayEpochDay()
+
 
     LaunchedEffect(s.saveStatus) {
         if (s.saveStatus == SaveStatus.SAVED) { vm.onSavedHandled(); onDone() }
@@ -58,7 +68,7 @@ fun AddExpenseScreen(
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.weight(1f)
             )
-            // add mode only: empty the form and delete the draft
+            // add mode only: empty the vm.onDateChanged and delete the draft
             if (!s.isEditing) TextButton(vm::onClearClicked) { Text("Clear") }
         }
         if (s.restoredDraft) {
@@ -100,6 +110,38 @@ fun AddExpenseScreen(
                     label = { Text(if (m.uid == myUid) "You" else m.name) })
             }
         }
+
+        //choosing a date for the expense
+        if (showPicker) {
+            val pickerState = rememberDatePickerState(
+                initialSelectedDateMillis = s.dateEpochDay * 86_400_000L,
+                selectableDates = object : SelectableDates {
+                    override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                        utcTimeMillis / 86_400_000L <= today
+                }
+            )
+            DatePickerDialog(
+                onDismissRequest = { showPicker = false },
+                confirmButton = {
+                    TextButton({
+                        pickerState.selectedDateMillis?.let { vm.onDateChanged(it / 86_400_000L) }
+                        showPicker = false
+                    }) { Text("OK") }
+                },
+                dismissButton = { TextButton({ showPicker = false }) { Text("Cancel") } }
+            ) { DatePicker(state = pickerState) }
+        }
+
+        Text("Date")
+        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ChoiceCard("Choose date", s.dateEpochDay < today - 1, { showPicker = true }, Modifier.weight(1f).fillMaxHeight())
+        }
+
+        Text(
+            formatFullEpochDay(s.dateEpochDay),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         Text("Split")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -146,4 +188,5 @@ fun AddExpenseScreen(
             )
         }
     }
+
 }

@@ -5,9 +5,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.app.haven.appContainer
-import com.app.haven.actions.ExpenseActions
-import com.app.haven.actions.ExpenseDraftActions
-import com.app.haven.actions.GroceryItemActions
+import com.app.haven.actions.expense.ExpenseActions
+import com.app.haven.actions.expense.ExpenseDraftActions
+import com.app.haven.actions.grocery.GroceryItemActions
+import com.app.haven.domain.chore.epochDayOfMillis
+import com.app.haven.domain.chore.todayEpochDay
 import com.app.haven.domain.expense.Expense
 import com.app.haven.domain.expense.ExpenseCategory
 import com.app.haven.domain.expense.ExpenseDraft
@@ -53,7 +55,8 @@ data class AddExpenseUiState(
     val isEditing: Boolean = false,          // true when changing an existing expense
     val loadingExpense: Boolean = false,     // edit mode: waiting for the expense to load
     val restoredDraft: Boolean = false,      // add mode: the form was filled from a saved draft
-    val lockedMessage: String? = null        // edit mode: someone in the expense left, so it can't be saved
+    val lockedMessage: String? = null,        // edit mode: someone in the expense left, so it can't be saved
+    val dateEpochDay: Long = todayEpochDay()
 )
 
 //values to start a new expense with, e.g. from the grocery list's "Add to expense"
@@ -155,8 +158,9 @@ class AddExpenseViewModel(
                             splitMode = if (d.evenSplit) SplitMode.EVEN else SplitMode.CUSTOM,
                             includedUids = d.includedUids,
                             customAmountTexts = d.customAmountTexts,
-                            restoredDraft = true
-                        )
+                            restoredDraft = true,
+                            dateEpochDay = d.dateEpochDay,
+                            )
                     )
                 }
             }
@@ -194,7 +198,12 @@ class AddExpenseViewModel(
                         splitMode = if (isEven) SplitMode.EVEN else SplitMode.CUSTOM,
                         includedUids = expense.shares.keys,
                         customAmountTexts = if (isEven) emptyMap() else expense.shares.mapValues { centsToText(it.value) },
-                        loadingExpense = false
+                        loadingExpense = false,
+                        dateEpochDay = when {
+                            expense.dateEpochDay > 0L -> expense.dateEpochDay
+                            expense.createdAtMillis != null -> epochDayOfMillis(expense.createdAtMillis)
+                            else -> todayEpochDay()
+                        }
                     )
                 )
             }
@@ -223,6 +232,7 @@ class AddExpenseViewModel(
     fun onCategorySelected(category: ExpenseCategory) =
         _uiState.update { it.copy(category = category) }
 
+    fun onDateChanged(day: Long) = _uiState.update { it.copy(dateEpochDay = day) }
     fun onPaidByChanged(uid: String) =
         _uiState.update { it.copy(paidByUid = uid) }
 
@@ -291,7 +301,8 @@ class AddExpenseViewModel(
             category = s.category,
             paidByUid = s.paidByUid,
             paidByName = payerName,
-            shares = shares
+            shares = shares,
+            dateEpochDay = s.dateEpochDay
         )
 
         //save the results to the database
@@ -346,7 +357,8 @@ class AddExpenseViewModel(
         paidByUid = paidByUid,
         evenSplit = splitMode == SplitMode.EVEN,
         includedUids = includedUids,
-        customAmountTexts = customAmountTexts
+        customAmountTexts = customAmountTexts,
+        dateEpochDay = dateEpochDay
     )
 
     //nothing typed yet, so there's nothing worth keeping

@@ -10,5 +10,6 @@ data class ExpenseDraft(
     val paidByUid: String,
     val evenSplit: Boolean,
     val includedUids: Set<String>,
-    val customAmountTexts: Map<String, String>
+    val customAmountTexts: Map<String, String>,
+    val dateEpochDay: Long
 )

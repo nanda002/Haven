@@ -1,12 +1,14 @@
-package com.app.haven.data.model
+package com.app.haven.data.model.expense
 
 import com.app.haven.domain.expense.ExpenseCategory
 import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
+import kotlin.String
 import com.app.haven.domain.expense.Expense as DomainExpense
 data class Expense(
     @DocumentId val id: String = "",
+    val recurringId: String = "",
     //the name that the user gives the expense
     val description: String = "",
     //total amount - in cents, since splits from total amount is not calculated clearly with Double type
@@ -17,12 +19,14 @@ data class Expense(
     val paidByName: String = "",
     //which members are included in the transaction
     val shares: Map<String, Long> = emptyMap(),
-    @ServerTimestamp val createdAt: Date? = null
+    @ServerTimestamp val createdAt: Date? = null,
+    val dateEpochDay: Long = 0L
 )
 
 //dto to transport model conversions and vice versa
 fun Expense.toDomain() = DomainExpense(
     id = id,
+    recurringId = recurringId,
     description = description,
     amountCents = amountCents,
     category = runCatching { ExpenseCategory.valueOf(category) }
@@ -30,16 +34,19 @@ fun Expense.toDomain() = DomainExpense(
     paidByUid = paidByUid,
     paidByName = paidByName,
     shares = shares,
-    createdAtMillis = createdAt?.time
+    createdAtMillis = createdAt?.time,
+    dateEpochDay = dateEpochDay
 )
 
 fun DomainExpense.toData() = Expense(
+    recurringId = recurringId,
     description = description,
     amountCents = amountCents,
     category = category.name,
     paidByUid = paidByUid,
     paidByName = paidByName,
-    shares = shares
+    shares = shares,
+    dateEpochDay = dateEpochDay
 )
 
 
