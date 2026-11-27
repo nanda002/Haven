@@ -9,6 +9,7 @@ import com.app.haven.actions.HouseholdActions
 import com.app.haven.actions.SettleExpenseActions
 import com.app.haven.appContainer
 import com.app.haven.data.model.Member
+import com.app.haven.domain.expense.Balance
 import com.app.haven.domain.expense.calculateBalances
 import com.app.haven.domain.household.canLeaveHousehold
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,15 +38,15 @@ class HouseholdMembersViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     //required for calculating the settlements of each user for removing a member from the household
-    val settledUids: StateFlow<Set<String>> = combine(
+    val balances: StateFlow<Map<String, Balance>> = combine(
         members,
         expenses.getExpenses(householdId),
         settlements.getSettlements(householdId)
     ) { m, e, s ->
-        m.map { it.uid }.filter { canLeaveHousehold(calculateBalances(e, it, s)) }.toSet()
+        m.associate { it.uid to calculateBalances(e, it.uid, s) }
     }
-        .catch { emit(emptySet()) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+        .catch { emit(emptyMap()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     companion object {
         fun factory(householdId: String) = viewModelFactory {
