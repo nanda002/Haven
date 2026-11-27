@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.app.haven.actions.chores.ChoreActions
-import com.app.haven.actions.HouseholdActions
+import com.app.haven.actions.household.HouseholdActions
 import com.app.haven.actions.friendlyMessage
 import com.app.haven.appContainer
 import com.app.haven.domain.chore.Assignee

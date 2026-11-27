@@ -1,4 +1,4 @@
-package com.app.haven.data.model
+package com.app.haven.data.model.grocery
 
 import com.app.haven.domain.grocerylist.GroceryItem as DomainGrocery
 import com.google.firebase.firestore.DocumentId

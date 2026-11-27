@@ -1,9 +1,9 @@
-package com.app.haven.actions
+package com.app.haven.actions.grocery
 
 import android.util.Log
-import com.app.haven.data.model.GroceryItem as GroceryItemDoc
-import com.app.haven.data.model.toData
-import com.app.haven.data.model.toDomain
+import com.app.haven.data.model.grocery.GroceryItem as GroceryItemDoc
+import com.app.haven.data.model.grocery.toData
+import com.app.haven.data.model.grocery.toDomain
 import com.app.haven.domain.grocerylist.GroceryItem
 import com.app.haven.domain.grocerylist.validateGroceryItem
 import com.google.firebase.firestore.FirebaseFirestore

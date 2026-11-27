@@ -1,4 +1,4 @@
-package com.app.haven.data.model
+package com.app.haven.data.model.expense
 
 import com.app.haven.domain.expense.DomainRecurringExpense
 import com.app.haven.domain.expense.ExpenseCategory

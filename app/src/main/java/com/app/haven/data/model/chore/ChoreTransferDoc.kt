@@ -1,4 +1,4 @@
-package com.app.haven.data.model
+package com.app.haven.data.model.chore
 
 import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.ServerTimestamp

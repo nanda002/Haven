@@ -2,7 +2,7 @@ package com.app.haven.viewmodel.home
 
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.app.haven.actions.ExpenseActions
+import com.app.haven.actions.expense.ExpenseActions
 import com.app.haven.appContainer
 import com.app.haven.domain.expense.ExpenseCategory
 import com.app.haven.domain.expense.currMonthShareStats

@@ -5,9 +5,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.app.haven.appContainer
-import com.app.haven.actions.ExpenseActions
-import com.app.haven.actions.ExpenseDraftActions
-import com.app.haven.actions.GroceryItemActions
+import com.app.haven.actions.expense.ExpenseActions
+import com.app.haven.actions.expense.ExpenseDraftActions
+import com.app.haven.actions.grocery.GroceryItemActions
 import com.app.haven.domain.chore.epochDayOfMillis
 import com.app.haven.domain.chore.todayEpochDay
 import com.app.haven.domain.expense.Expense

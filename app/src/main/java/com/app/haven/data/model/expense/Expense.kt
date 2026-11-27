@@ -1,4 +1,4 @@
-package com.app.haven.data.model
+package com.app.haven.data.model.expense
 
 import com.app.haven.domain.expense.ExpenseCategory
 import com.google.firebase.firestore.DocumentId

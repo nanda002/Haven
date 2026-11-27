@@ -1,13 +1,13 @@
-package com.app.haven.actions
+package com.app.haven.actions.expense
 
 
 import android.util.Log
 import com.app.haven.data.local.daos.SettlementDao
 import com.app.haven.data.local.entities.toDomain
 import com.app.haven.data.local.entities.toEntity
-import com.app.haven.data.model.SettleExpenses
-import com.app.haven.data.model.toData
-import com.app.haven.data.model.toDomain
+import com.app.haven.data.model.expense.SettleExpenses
+import com.app.haven.data.model.expense.toData
+import com.app.haven.data.model.expense.toDomain
 import com.app.haven.domain.expense.Settlement
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
