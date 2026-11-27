@@ -5,6 +5,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.app.haven.domain.expense.Expense
 import com.app.haven.domain.expense.ExpenseCategory
+import kotlin.Long
 
 @Entity(
     tableName = "expenses",
@@ -19,7 +20,8 @@ data class ExpenseEntity (
     val paidByUid: String,
     val paidByName: String,
     val shares: Map<String, Long>,       //stored as text by the shares converter
-    val createdAtMillis: Long?
+    val createdAtMillis: Long?,
+    val dateEpochDay: Long
 )
 
 //room entity to domain model conversions and vice versa
@@ -32,7 +34,8 @@ fun ExpenseEntity.toDomain() = Expense(
     paidByUid = paidByUid,
     paidByName = paidByName,
     shares = shares,
-    createdAtMillis = createdAtMillis
+    createdAtMillis = createdAtMillis,
+    dateEpochDay = dateEpochDay
 )
 
 fun Expense.toEntity(householdId: String) = ExpenseEntity(
@@ -44,5 +47,6 @@ fun Expense.toEntity(householdId: String) = ExpenseEntity(
     paidByUid = paidByUid,
     paidByName = paidByName,
     shares = shares,
-    createdAtMillis = createdAtMillis
+    createdAtMillis = createdAtMillis,
+    dateEpochDay = dateEpochDay
 )

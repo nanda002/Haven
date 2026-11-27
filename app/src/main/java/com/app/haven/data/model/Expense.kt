@@ -17,7 +17,8 @@ data class Expense(
     val paidByName: String = "",
     //which members are included in the transaction
     val shares: Map<String, Long> = emptyMap(),
-    @ServerTimestamp val createdAt: Date? = null
+    @ServerTimestamp val createdAt: Date? = null,
+    val dateEpochDay: Long = 0L
 )
 
 //dto to transport model conversions and vice versa
@@ -30,7 +31,8 @@ fun Expense.toDomain() = DomainExpense(
     paidByUid = paidByUid,
     paidByName = paidByName,
     shares = shares,
-    createdAtMillis = createdAt?.time
+    createdAtMillis = createdAt?.time,
+    dateEpochDay = dateEpochDay
 )
 
 fun DomainExpense.toData() = Expense(
@@ -39,7 +41,8 @@ fun DomainExpense.toData() = Expense(
     category = category.name,
     paidByUid = paidByUid,
     paidByName = paidByName,
-    shares = shares
+    shares = shares,
+    dateEpochDay = dateEpochDay
 )
 
 

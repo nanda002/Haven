@@ -21,7 +21,7 @@ import com.app.haven.data.local.entities.SettlementEntity
 //plus unsaved add-expense and add-chore drafts, which exist only here
 @Database(
     entities = [ExpenseEntity::class, SettlementEntity::class, ExpenseDraftEntity::class, ChoreDraftEntity::class],
-    version = 4,   //4: added the chore_draft table (real migration, so existing drafts are kept)
+    version = 5,
     exportSchema = false
 )
 //registering the type converter
@@ -50,6 +50,13 @@ abstract class HavenDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `expenses` ADD COLUMN `dateEpochDay` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `expense_draft` ADD COLUMN `dateEpochDay` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         //one shared database for the whole app
         fun get(context: Context): HavenDatabase =
             instance ?: synchronized(this) {
@@ -58,7 +65,7 @@ abstract class HavenDatabase : RoomDatabase() {
                     HavenDatabase::class.java,
                     "haven.db"
                 )
-                    .addMigrations(MIGRATION_3_4)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
                     //any other version change rebuilds instead of migrating: fine for the Firestore copies,
                     //but careful: this also wipes unsaved drafts, so add real migrations before changing tables again
                     .fallbackToDestructiveMigration(dropAllTables = true)

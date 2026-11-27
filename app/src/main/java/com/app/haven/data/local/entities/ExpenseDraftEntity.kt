@@ -21,7 +21,8 @@ data class ExpenseDraftEntity(
     val paidByUid: String,
     val evenSplit: Boolean,
     val includedUids: Set<String>,
-    val customAmountTexts: Map<String, String>
+    val customAmountTexts: Map<String, String>,
+    val dateEpochDay: Long
 )
 
 fun ExpenseDraftEntity.toDomain() = ExpenseDraft(
@@ -32,7 +33,8 @@ fun ExpenseDraftEntity.toDomain() = ExpenseDraft(
     paidByUid = paidByUid,
     evenSplit = evenSplit,
     includedUids = includedUids,
-    customAmountTexts = customAmountTexts
+    customAmountTexts = customAmountTexts,
+    dateEpochDay = dateEpochDay
 )
 
 fun ExpenseDraft.toEntity(householdId: String) = ExpenseDraftEntity(
@@ -43,5 +45,6 @@ fun ExpenseDraft.toEntity(householdId: String) = ExpenseDraftEntity(
     paidByUid = paidByUid,
     evenSplit = evenSplit,
     includedUids = includedUids,
-    customAmountTexts = customAmountTexts
+    customAmountTexts = customAmountTexts,
+    dateEpochDay = dateEpochDay
 )

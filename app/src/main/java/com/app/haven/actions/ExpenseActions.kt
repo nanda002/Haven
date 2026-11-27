@@ -85,7 +85,8 @@ class ExpenseRepository(
                     "category" to expense.category.name,
                     "paidByUid" to expense.paidByUid,
                     "paidByName" to expense.paidByName,
-                    "shares" to expense.shares
+                    "shares" to expense.shares,
+                    "dateEpochDay" to expense.dateEpochDay
                 )
             ).addOnFailureListener { e -> Log.e("Expense Repo", "update failed on the server") }
             Unit
