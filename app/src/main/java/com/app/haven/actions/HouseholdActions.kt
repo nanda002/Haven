@@ -7,6 +7,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.Transaction
 import com.app.haven.domain.chore.epochDayOfMillis
 import com.app.haven.domain.chore.todayEpochDay
 import kotlinx.coroutines.channels.awaitClose
@@ -133,37 +134,55 @@ class HouseholdActions(
     // Leaves the current household. Member doc is kept (active=false) so old expenses still show their name
     suspend fun leaveHousehold() {
         val uid = uid()
-        val userRef = db.collection("users").document(uid)
         db.runTransaction { tx ->
-            val householdId = tx.get(userRef).getString("householdId")
+            val householdId = tx.get(db.collection("users").document(uid)).getString("householdId")
                 ?: throw IllegalStateException("You're not in a household")
-            val householdRef = db.collection("households").document(householdId)
-
-            val memberRef = householdRef.collection("members").document(uid)
-            val memberSnap = tx.get(memberRef)   // every read comes before the first write
-            val today = todayEpochDay()
-            val joinedDay = memberSnap.getTimestamp("joinedAt")?.let { epochDayOfMillis(it.toDate().time) } ?: today
-
-            tx.update(householdRef, "memberIds", FieldValue.arrayRemove(uid))
-            val leaving = mutableMapOf<String, Any>(
-                "active" to false,
-                "leftAt" to FieldValue.serverTimestamp(),
-                // this stay is kept for good, so work done during it still counts for them if they come back
-                "membershipPeriods" to FieldValue.arrayUnion(mapOf("joinedEpochDay" to joinedDay, "leftEpochDay" to today))
-            )
-            if (memberSnap.getBoolean("vacation") == true) {
-                // leaving ends a vacation that is still going
-                val start = memberSnap.getLong("vacationStartEpochDay") ?: today
-                leaving["vacation"] = false
-                leaving["vacationStartEpochDay"] = 0L
-                leaving["vacationPeriods"] = FieldValue.arrayUnion(
-                    mapOf("startEpochDay" to start, "endEpochDay" to maxOf(start, today))
-                )
-            }
-            tx.update(memberRef, leaving)
-            tx.update(userRef, mapOf<String, Any?>("householdId" to null))
+            deactivateMember(tx, householdId, uid)
             null
         }.await()
+    }
+
+    suspend fun removeMember(memberUid: String) {
+        val uid = uid()
+        if (memberUid == uid) throw IllegalStateException("Use Leave household to leave")
+        db.runTransaction { tx ->
+            val householdId = tx.get(db.collection("users").document(uid)).getString("householdId")
+                ?: throw IllegalStateException("You're not in a household")
+            val memberIds = tx.get(db.collection("households").document(householdId)).get("memberIds") as? List<*>
+            if (memberIds == null || memberUid !in memberIds) {
+                throw IllegalStateException("They're not in your household")
+            }
+            deactivateMember(tx, householdId, memberUid)
+            null
+        }.await()
+    }
+
+    private fun deactivateMember(tx: Transaction, householdId: String, memberUid: String) {
+        val householdRef = db.collection("households").document(householdId)
+        val userRef = db.collection("users").document(memberUid)
+        val memberRef = householdRef.collection("members").document(memberUid)
+        val memberSnap = tx.get(memberRef)
+        val today = todayEpochDay()
+        val joinedDay = memberSnap.getTimestamp("joinedAt")?.let { epochDayOfMillis(it.toDate().time) } ?: today
+
+        tx.update(householdRef, "memberIds", FieldValue.arrayRemove(memberUid))
+        val leaving = mutableMapOf<String, Any>(
+            "active" to false,
+            "leftAt" to FieldValue.serverTimestamp(),
+            // this stay is kept for good, so work done during it still counts for them if they come back
+            "membershipPeriods" to FieldValue.arrayUnion(mapOf("joinedEpochDay" to joinedDay, "leftEpochDay" to today))
+        )
+        if (memberSnap.getBoolean("vacation") == true) {
+            // leaving ends a vacation that is still going
+            val start = memberSnap.getLong("vacationStartEpochDay") ?: today
+            leaving["vacation"] = false
+            leaving["vacationStartEpochDay"] = 0L
+            leaving["vacationPeriods"] = FieldValue.arrayUnion(
+                mapOf("startEpochDay" to start, "endEpochDay" to maxOf(start, today))
+            )
+        }
+        tx.update(memberRef, leaving)
+        tx.update(userRef, mapOf<String, Any?>("householdId" to null))
     }
 
     // Vacation Mode. Its start and end days are kept for good, so the contribution history can tell

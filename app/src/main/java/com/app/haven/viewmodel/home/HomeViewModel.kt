@@ -40,6 +40,12 @@ class HomeViewModel(
     private val _leaveError = MutableStateFlow<String?>(null)
     val leaveError: StateFlow<String?> = _leaveError.asStateFlow()
 
+    private val _removing = MutableStateFlow(false)
+    val removing: StateFlow<Boolean> = _removing.asStateFlow()
+
+    private val _removeError = MutableStateFlow<String?>(null)
+    val removeError: StateFlow<String?> = _removeError.asStateFlow()
+
     private val _regenerating = MutableStateFlow(false)
     val regenerating: StateFlow<Boolean> = _regenerating.asStateFlow()
 
@@ -57,6 +63,20 @@ class HomeViewModel(
                 _leaveError.value = e.friendlyMessage()
             } finally {
                 _leaving.value = false
+            }
+        }
+    }
+
+    fun removeMember(memberUid: String) {
+        viewModelScope.launch {
+            _removing.value = true
+            _removeError.value = null
+            try {
+                households.removeMember(memberUid)
+            } catch (e: Exception) {
+                _removeError.value = e.friendlyMessage()
+            } finally {
+                _removing.value = false
             }
         }
     }

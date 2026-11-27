@@ -38,6 +38,7 @@ import com.app.haven.view.common.joinQrPayload
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -59,6 +60,8 @@ fun HouseholdDetailsScreen(
     val inviteError by vm.inviteError.collectAsStateWithLifecycle()
     val leaving by vm.leaving.collectAsStateWithLifecycle()
     val leaveError by vm.leaveError.collectAsStateWithLifecycle()
+    val removing by vm.removing.collectAsStateWithLifecycle()
+    val removeError by vm.removeError.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.load() }
 
     Column(
@@ -81,7 +84,8 @@ fun HouseholdDetailsScreen(
                 inviteError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
                 HorizontalDivider()
-                MembersSection(h.id, myUid)
+                MembersSection(h.id, myUid, removing, onRemove = vm::removeMember)
+                removeError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
                 if (myUid != null) {
                     HorizontalDivider()
@@ -208,11 +212,15 @@ private fun copyToClipboard(context: Context, code: String) {
 private fun MembersSection(
     householdId: String,
     myUid: String?,
+    removing: Boolean,
+    onRemove: (String) -> Unit,
     vm: HouseholdMembersViewModel = viewModel(factory = HouseholdMembersViewModel.factory(householdId))
 ) {
     val members by vm.members.collectAsStateWithLifecycle()
     val past by vm.pastMembers.collectAsStateWithLifecycle()
+    val settled by vm.balances.collectAsStateWithLifecycle()
     var showPast by rememberSaveable { mutableStateOf(false) }
+    var pendingRemoveUid by rememberSaveable { mutableStateOf<String?>(null) }
     val faded = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -225,7 +233,52 @@ private fun MembersSection(
             ) {
                 Avatar(m.displayName, m.photoUrl)
                 Spacer(Modifier.width(12.dp))
-                Text(m.displayName.ifBlank { "Unnamed" } + suffix, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    m.displayName.ifBlank {"Unanamed"} + suffix,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                if (m.uid != myUid) {
+                    IconButton(
+                        onClick = { pendingRemoveUid = m.uid },
+                        enabled = m.uid in settled && !removing
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Logout, contentDescription = "Remove ${m.displayName.ifBlank { "member" }}")
+                    }
+                }
+            }
+        }
+
+        val pending = members.firstOrNull { it.uid == pendingRemoveUid }
+        val pendingBalance = pending?.let { settled[it.uid] }
+        if (pending != null && pendingBalance != null) {
+            val name = pending.displayName.ifBlank { "This member" }
+            if (canLeaveHousehold(pendingBalance)) {
+                AlertDialog(
+                    onDismissRequest = { pendingRemoveUid = null },
+                    title = { Text("Remove $name?") },
+                    text = { Text("They'll lose access to this household. They can rejoin later with the invite code.") },
+                    confirmButton = {
+                        TextButton({ pendingRemoveUid = null; onRemove(pending.uid) }) {
+                            Text("Remove", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = { TextButton({ pendingRemoveUid = null }) { Text("Cancel") } }
+                )
+            } else {
+                //show dialog if user has dues to settle
+                AlertDialog(
+                    onDismissRequest = { pendingRemoveUid = null },
+                    title = { Text("Can't remove $name") },
+                    text = {
+                        Text(
+                            "$name needs to settle up first. They're owed ${pendingBalance.owedToMeCents.money()} " +
+                                    "and owe ${pendingBalance.iOweCents.money()}."
+                        )
+                    },
+                    confirmButton = { TextButton({ pendingRemoveUid = null }) { Text("OK") } }
+                )
             }
         }
 

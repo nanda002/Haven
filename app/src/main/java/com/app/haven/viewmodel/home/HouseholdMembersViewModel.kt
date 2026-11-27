@@ -4,18 +4,26 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.app.haven.actions.ExpenseActions
 import com.app.haven.actions.HouseholdActions
+import com.app.haven.actions.SettleExpenseActions
 import com.app.haven.appContainer
 import com.app.haven.data.model.Member
+import com.app.haven.domain.expense.Balance
+import com.app.haven.domain.expense.calculateBalances
+import com.app.haven.domain.household.canLeaveHousehold
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 // Current + past members for the Home members popup
 class HouseholdMembersViewModel(
     households: HouseholdActions,
+    expenses: ExpenseActions,
+    settlements: SettleExpenseActions,
     householdId: String
 ) : ViewModel() {
 
@@ -29,10 +37,22 @@ class HouseholdMembersViewModel(
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    //required for calculating the settlements of each user for removing a member from the household
+    val balances: StateFlow<Map<String, Balance>> = combine(
+        members,
+        expenses.getExpenses(householdId),
+        settlements.getSettlements(householdId)
+    ) { m, e, s ->
+        m.associate { it.uid to calculateBalances(e, it.uid, s) }
+    }
+        .catch { emit(emptyMap()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     companion object {
         fun factory(householdId: String) = viewModelFactory {
             initializer {
-                HouseholdMembersViewModel(appContainer().householdActions, householdId)
+                val c = appContainer()
+                HouseholdMembersViewModel(c.householdActions, c.expenseRepository, c.settlementRepository, householdId)
             }
         }
     }
