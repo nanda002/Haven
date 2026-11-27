@@ -4,6 +4,7 @@ enum class ExpenseCategory { RENT, UTILITIES, GROCERIES, OTHER }
 
 data class Expense(
     val id: String = "",
+    val recurringId: String = "",
     val description: String,
     val amountCents: Long,
     val category: ExpenseCategory,

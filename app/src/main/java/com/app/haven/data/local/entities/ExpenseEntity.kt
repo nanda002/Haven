@@ -13,6 +13,7 @@ import kotlin.Long
 )
 data class ExpenseEntity (
     @PrimaryKey val id: String,          //same id as the Firestore document
+    val recurringId: String = "",
     val householdId: String,             //which household it belongs to
     val description: String,
     val amountCents: Long,
@@ -27,6 +28,7 @@ data class ExpenseEntity (
 //room entity to domain model conversions and vice versa
 fun ExpenseEntity.toDomain() = Expense(
     id = id,
+    recurringId = recurringId,
     description = description,
     amountCents = amountCents,
     category = runCatching { ExpenseCategory.valueOf(category) }
@@ -40,6 +42,7 @@ fun ExpenseEntity.toDomain() = Expense(
 
 fun Expense.toEntity(householdId: String) = ExpenseEntity(
     id = id,
+    recurringId = recurringId,
     householdId = householdId,
     description = description,
     amountCents = amountCents,
